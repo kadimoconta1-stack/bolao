@@ -573,13 +573,12 @@ export default function Home() {
           {pool.show_logo_image ? (
             <div className="flex justify-center mb-6">
               <img
-                src="/logo.webp"
+                src="/logo-bolao.png"
                 alt={pool.name}
                 style={{
-                  maxWidth: "min(380px, 85vw)",
-                  maxHeight: "130px",
+                  maxWidth: "min(420px, 90vw)",
+                  maxHeight: "150px",
                   objectFit: "contain",
-                  borderRadius: "8px",
                 }}
               />
             </div>
