@@ -20,6 +20,7 @@ interface Pool {
   pix_receiver_name: string;
   organizer_whatsapp: string;
   theme: string;
+  show_splash_screen?: boolean;
 }
 
 interface LocalBet {
