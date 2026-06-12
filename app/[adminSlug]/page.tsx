@@ -1461,7 +1461,7 @@ export default function AdminDashboard() {
                 {showTokenInput && (
                   <button
                     type="button"
-                    onClick={() => { setShowTokenInput(false); setTelegramForm({ bot_token: "", admin_chat_id: telegramForm.admin_chat_id, webhook_secret: "" }); }}
+                    onClick={() => { setShowTokenInput(false); setTelegramForm(prev => ({ ...prev, bot_token: "", webhook_secret: "" })); }}
                     className="text-xs text-slate-400 hover:text-slate-300 underline cursor-pointer"
                   >
                     Cancelar alteração
