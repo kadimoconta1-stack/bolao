@@ -66,6 +66,7 @@ export default function AdminDashboard() {
   // Audit logs state
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [clearLoading, setClearLoading] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -240,6 +241,59 @@ export default function AdminDashboard() {
       setErrorMsg(err.message);
     } finally {
       setAuditLoading(false);
+    }
+  };
+
+  const handleClearTestData = async () => {
+    if (!pool) { setErrorMsg("Nenhum bolão carregado."); return; }
+
+    // Triple confirmation
+    const step1 = confirm(
+      "⚠️ ATENÇÃO — LIMPEZA DE DADOS DE TESTE\n\n" +
+      "Esta ação irá apagar PERMANENTEMENTE:\n" +
+      "• Todos os palpites (pendentes, aprovados e recusados)\n" +
+      "• O resultado lançado (se houver)\n" +
+      "• Todo o histórico de auditoria\n" +
+      "• O bolão será reaberto (status → ABERTO)\n\n" +
+      "Deseja continuar? (1/3)"
+    );
+    if (!step1) return;
+
+    const step2 = confirm(
+      "🔴 SEGUNDA CONFIRMAÇÃO\n\n" +
+      `Você está prestes a apagar TODOS os dados do bolão "${pool.name}".\n` +
+      "Esta operação NÃO pode ser desfeita.\n\n" +
+      "Tem absoluta certeza? (2/3)"
+    );
+    if (!step2) return;
+
+    const step3 = confirm(
+      "☠️ ÚLTIMA CHANCE — CONFIRMAÇÃO FINAL\n\n" +
+      "Clique em OK apenas se realmente deseja apagar TUDO.\n" +
+      "Após confirmar, os dados serão removidos imediatamente do banco de dados.\n\n" +
+      "CONFIRMAR LIMPEZA TOTAL? (3/3)"
+    );
+    if (!step3) return;
+
+    setErrorMsg("");
+    setSuccessMsg("");
+    setClearLoading(true);
+    try {
+      const res = await callAdminApi("clear-test-data", {
+        poolId: pool.id,
+        confirmToken: "CONFIRMAR_LIMPEZA_TOTAL",
+      });
+      if (res.ok) {
+        setSuccessMsg(res.message);
+        setAuditLogs([]);
+        setBets([]);
+        await loadDashboard();
+        await loadAuditLogs();
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setClearLoading(false);
     }
   };
 
@@ -958,6 +1012,29 @@ export default function AdminDashboard() {
                 </table>
               </div>
             )}
+
+            {/* DANGER ZONE */}
+            <div className="mt-6 border border-rose-900/50 rounded-xl p-5 bg-rose-950/10 space-y-3">
+              <h3 className="text-sm font-black text-rose-400 flex items-center gap-2">
+                ☠️ Zona de Perigo — Limpeza de Dados
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Use este botão <span className="font-bold text-rose-400">apenas durante testes</span>. Ele apaga <b>todos os palpites</b> (pendentes, aprovados e recusados),
+                o resultado lançado e todo o histórico de auditoria, reiniciando o bolão para <b>ABERTO</b>.
+                A operação <span className="font-bold text-rose-400">não pode ser desfeita</span>.
+              </p>
+              <button
+                onClick={handleClearTestData}
+                disabled={clearLoading || !pool}
+                className="flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl bg-rose-700 hover:bg-rose-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                {clearLoading ? (
+                  <><span className="spinner border-t-white"></span> Limpando...</>
+                ) : (
+                  <>🧹 Limpar Todos os Dados de Teste</>
+                )}
+              </button>
+            </div>
           </div>
         )}
 

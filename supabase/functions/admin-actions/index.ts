@@ -518,7 +518,76 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, data: logs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+
+    // =========================================================================
+    // ACTION: CLEAR TEST DATA
+    // =========================================================================
+    if (action === "clear-test-data") {
+      const { poolId, confirmToken } = payload;
+
+      // Extra safety: caller must send a specific confirm token
+      if (confirmToken !== "CONFIRMAR_LIMPEZA_TOTAL") {
+        return new Response(
+          JSON.stringify({ ok: false, message: "Token de confirmação inválido.", errorCode: "INVALID_CONFIRM_TOKEN" }),
+          { headers: corsHeaders, status: 400 }
+        );
+      }
+
+      if (!poolId) {
+        return new Response(
+          JSON.stringify({ ok: false, message: "poolId é obrigatório.", errorCode: "MISSING_POOL_ID" }),
+          { headers: corsHeaders, status: 400 }
+        );
+      }
+
+      // 1. Delete all bets for this pool
+      const { error: deleteBetsErr } = await supabase
+        .from("bets")
+        .delete()
+        .eq("pool_id", poolId);
+      if (deleteBetsErr) throw deleteBetsErr;
+
+      // 2. Delete result for this pool (if any)
+      const { error: deleteResultErr } = await supabase
+        .from("results")
+        .delete()
+        .eq("pool_id", poolId);
+      if (deleteResultErr) throw deleteResultErr;
+
+      // 3. Delete all audit logs
+      const { error: deleteLogsErr } = await supabase
+        .from("audit_logs")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000"); // delete all rows
+      if (deleteLogsErr) throw deleteLogsErr;
+
+      // 4. Reset pool status back to OPEN
+      const { error: resetPoolErr } = await supabase
+        .from("pools")
+        .update({ status: "OPEN", updated_at: new Date().toISOString() })
+        .eq("id", poolId);
+      if (resetPoolErr) throw resetPoolErr;
+
+      // 5. Write a single fresh audit log so the table isn't empty
+      await supabase.from("audit_logs").insert({
+        action: "CLEAR_TEST_DATA",
+        entity_type: "POOLS",
+        entity_id: poolId,
+        actor: "ADMIN",
+        details: { cleared_at: new Date().toISOString(), note: "Limpeza de dados de teste realizada pelo admin." },
+      });
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          message: "Dados de teste limpos com sucesso! Todos os palpites, resultado e logs foram removidos e o bolão foi reaberto.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(JSON.stringify({ ok: false, message: "Ação não suportada", errorCode: "UNSUPPORTED_ACTION" }), { headers: corsHeaders, status: 400 });
+
 
   } catch (error: any) {
     console.error("Error in admin-actions:", error);

@@ -230,8 +230,9 @@ export default function Home() {
   // ── Real-time subscription: update local bets status automatically ────────
   useEffect(() => {
     fetchData();
-    loadLocalBets();
+    loadLocalBets(syncLocalBetsStatus);
   }, [fetchData]);
+
 
   useEffect(() => {
     if (!pool) return;
@@ -297,8 +298,42 @@ export default function Home() {
   };
 
   // ── Local bets helpers ───────────────────────────────────────────────────
-  const loadLocalBets = () => {
-    try { const raw = localStorage.getItem(LS_KEY); if (raw) setLocalBets(JSON.parse(raw)); } catch {}
+  const loadLocalBets = (onLoaded?: (bets: LocalBet[]) => void) => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        const parsed: LocalBet[] = JSON.parse(raw);
+        setLocalBets(parsed);
+        onLoaded?.(parsed);
+      }
+    } catch {}
+  };
+
+  // Sync all stored bets' statuses from DB in a single batch query
+  const syncLocalBetsStatus = async (stored: LocalBet[]) => {
+    if (!stored.length) return;
+    try {
+      const codes = stored.map((b) => b.codigo);
+      const { data } = await supabase
+        .from("public_bets_consultation")
+        .select("public_code, status")
+        .in("public_code", codes);
+      if (!data || data.length === 0) return;
+
+      // Build a lookup map
+      const statusMap: Record<string, string> = {};
+      data.forEach((row: any) => { statusMap[row.public_code] = row.status; });
+
+      setLocalBets((prev) => {
+        const updated = prev.map((b) =>
+          statusMap[b.codigo] !== undefined ? { ...b, status: statusMap[b.codigo] } : b
+        );
+        try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+    } catch {
+      // silently fail — status will be updated via realtime
+    }
   };
 
   const saveLocalBet = (bet: LocalBet) => {
