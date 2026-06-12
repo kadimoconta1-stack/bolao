@@ -103,16 +103,15 @@ function ConsultaModal({ onClose }: { onClose: () => void }) {
 }
 
 // ─── Modal: Transparência ───────────────────────────────────────────────────
-function TransparenciaModal({ poolId, onClose }: { poolId: string; onClose: () => void }) {
+function TransparenciaModal({ poolId, isFinished, onClose }: { poolId: string; isFinished: boolean; onClose: () => void }) {
   const [bets, setBets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase
       .from("public_paid_bets")
-      .select("*")
-      .eq("pool_id", poolId)
-      .order("payment_confirmed_at", { ascending: false })
+      .select("public_code, score_key, status, is_winner, created_at")
+      .order("created_at", { ascending: false })
       .limit(100)
       .then(({ data }) => {
         setBets(data || []);
@@ -132,16 +131,33 @@ function TransparenciaModal({ poolId, onClose }: { poolId: string; onClose: () =
         ) : bets.length === 0 ? (
           <p className="text-center text-slate-400 text-sm py-8">Nenhum palpite confirmado ainda.</p>
         ) : (
-          <div className="overflow-y-auto max-h-96 space-y-2">
-            {bets.map((b) => (
-              <div key={b.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 text-sm">
-                <div>
-                  <span className="font-extrabold tracking-wider text-[var(--primary)]">{b.public_code}</span>
-                  <p className="text-xs text-slate-400">{b.participant_name}</p>
+          <div className="space-y-4">
+            {!isFinished && (
+              <p className="text-[10px] text-slate-400 text-center bg-slate-50 dark:bg-slate-900/40 p-2 rounded-lg border border-slate-100 dark:border-slate-800/60">
+                🔒 Placares ocultos até o encerramento do bolão.
+              </p>
+            )}
+            <div className="overflow-y-auto max-h-80 space-y-2">
+              {bets.map((b) => (
+                <div key={b.public_code} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 text-sm">
+                  <div>
+                    <span className="font-extrabold tracking-wider text-[var(--primary)] uppercase">{b.public_code}</span>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">
+                      {isFinished ? `Placar: ${b.score_key.replace("-", " x ")}` : "🔒 Em sigilo"}
+                    </p>
+                  </div>
+                  <span className="status-badge badge-open text-[11px] py-0.5 px-2 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    {b.is_winner ? "🏅 Vencedor" : "Confirmado"}
+                  </span>
                 </div>
-                <span className="status-badge badge-open text-xs">Pago ✅</span>
-              </div>
-            ))}
+              ))}
+            </div>
+            <a
+              href="/transparencia"
+              className="block text-center text-xs text-[var(--primary)] hover:underline font-bold mt-2"
+            >
+              Ver quadro completo de transparência →
+            </a>
           </div>
         )}
       </div>
@@ -543,7 +559,7 @@ export default function Home() {
 
       {/* Modals */}
       {showConsulta && <ConsultaModal onClose={() => setShowConsulta(false)} />}
-      {showTransparencia && pool && <TransparenciaModal poolId={pool.id} onClose={() => setShowTransparencia(false)} />}
+      {showTransparencia && pool && <TransparenciaModal poolId={pool.id} isFinished={isFinished} onClose={() => setShowTransparencia(false)} />}
 
       {/* ── HERO HEADER ─────────────────────────────────────────────────── */}
       <header className="hero-header relative overflow-hidden">
