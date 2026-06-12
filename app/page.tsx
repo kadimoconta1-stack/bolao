@@ -22,6 +22,7 @@ interface Pool {
   theme: string;
   show_splash_screen?: boolean;
   show_logo_image?: boolean;
+  logo_style?: string;
 }
 
 interface LocalBet {
@@ -579,6 +580,21 @@ export default function Home() {
                   maxWidth: "min(420px, 90vw)",
                   maxHeight: "150px",
                   objectFit: "contain",
+                  ...(pool.logo_style === "soft_edges" && {
+                    WebkitMaskImage: "radial-gradient(ellipse 88% 82% at center, black 45%, transparent 100%)",
+                    maskImage: "radial-gradient(ellipse 88% 82% at center, black 45%, transparent 100%)",
+                  }),
+                  ...(pool.logo_style === "no_white" && {
+                    mixBlendMode: "multiply",
+                  }),
+                  ...(pool.logo_style === "soft_no_white" && {
+                    mixBlendMode: "multiply",
+                    WebkitMaskImage: "radial-gradient(ellipse 88% 82% at center, black 45%, transparent 100%)",
+                    maskImage: "radial-gradient(ellipse 88% 82% at center, black 45%, transparent 100%)",
+                  }),
+                  ...(pool.logo_style === "glow" && {
+                    filter: "drop-shadow(0 0 18px rgba(255,255,255,0.25)) drop-shadow(0 0 6px rgba(var(--primary-rgb),0.5))",
+                  }),
                 }}
               />
             </div>

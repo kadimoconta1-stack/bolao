@@ -69,6 +69,7 @@ export default function AdminDashboard() {
     theme: "verde",
     show_splash_screen: false,
     show_logo_image: false,
+    logo_style: "normal",
   });
 
   // Telegram config state
@@ -253,6 +254,7 @@ export default function AdminDashboard() {
             theme: p.theme,
             show_splash_screen: p.show_splash_screen || false,
             show_logo_image: p.show_logo_image || false,
+            logo_style: p.logo_style || "normal",
           });
 
           if (res.data.result) {
@@ -1086,6 +1088,26 @@ export default function AdminDashboard() {
                     🖼️ Usar imagem de logotipo no topo (oculta o nome em texto)
                   </label>
                 </div>
+
+                {configForm.show_logo_image && (
+                  <div className="flex flex-col space-y-1 pl-6 border-l-2 border-emerald-700/40">
+                    <label className="font-bold text-slate-400">🎨 Estilo visual da logo</label>
+                    <select
+                      value={configForm.logo_style}
+                      onChange={(e) => setConfigForm({ ...configForm, logo_style: e.target.value })}
+                      className="custom-input bg-slate-950 border-slate-800 py-2.5 h-10 text-slate-300"
+                    >
+                      <option value="normal">Padrão (sem efeito)</option>
+                      <option value="soft_edges">Bordas suavizadas (fade nas bordas)</option>
+                      <option value="no_white">Sem fundo branco (transparência)</option>
+                      <option value="soft_no_white">Bordas suavizadas + sem fundo branco</option>
+                      <option value="glow">Brilho / Sombra ao redor</option>
+                    </select>
+                    <p className="text-[10px] text-slate-500">
+                      &quot;Sem fundo branco&quot; funciona melhor em temas escuros.
+                    </p>
+                  </div>
+                )}
 
               </div>
 

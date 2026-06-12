@@ -475,6 +475,7 @@ serve(async (req) => {
         theme: config.theme || "verde",
         show_splash_screen: config.show_splash_screen === true,
         show_logo_image: config.show_logo_image === true,
+        logo_style: config.logo_style || "normal",
         updated_at: new Date().toISOString(),
       };
 
