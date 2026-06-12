@@ -68,6 +68,7 @@ export default function AdminDashboard() {
     organizer_whatsapp: "",
     theme: "verde",
     show_splash_screen: false,
+    show_logo_image: false,
   });
 
   // Telegram config state
@@ -251,6 +252,7 @@ export default function AdminDashboard() {
             organizer_whatsapp: p.organizer_whatsapp,
             theme: p.theme,
             show_splash_screen: p.show_splash_screen || false,
+            show_logo_image: p.show_logo_image || false,
           });
 
           if (res.data.result) {
@@ -1069,6 +1071,19 @@ export default function AdminDashboard() {
                   />
                   <label htmlFor="showSplash" className="font-bold text-slate-300">
                     🖼️ Exibir tela de abertura (Splash Screen) ao acessar o site
+                  </label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="showLogoImage"
+                    checked={configForm.show_logo_image}
+                    onChange={(e) => setConfigForm({ ...configForm, show_logo_image: e.target.checked })}
+                    className="w-4 h-4 text-emerald-600 bg-slate-950 border-slate-800 rounded focus:ring-emerald-500 focus:ring-2"
+                  />
+                  <label htmlFor="showLogoImage" className="font-bold text-slate-300">
+                    🖼️ Usar imagem de logotipo no topo (oculta o nome em texto)
                   </label>
                 </div>
 

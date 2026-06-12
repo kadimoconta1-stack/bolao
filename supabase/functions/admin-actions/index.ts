@@ -474,6 +474,7 @@ serve(async (req) => {
         organizer_whatsapp: config.organizer_whatsapp.replace(/\D/g, ""),
         theme: config.theme || "verde",
         show_splash_screen: config.show_splash_screen === true,
+        show_logo_image: config.show_logo_image === true,
         updated_at: new Date().toISOString(),
       };
 

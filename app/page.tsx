@@ -21,6 +21,7 @@ interface Pool {
   organizer_whatsapp: string;
   theme: string;
   show_splash_screen?: boolean;
+  show_logo_image?: boolean;
 }
 
 interface LocalBet {
@@ -568,10 +569,25 @@ export default function Home() {
         <div className="blob blob-2" />
 
         <div className="relative z-10 max-w-3xl mx-auto px-4 py-10 text-center">
-          {/* Pool badge */}
-          <span className="inline-block text-xs uppercase tracking-widest font-bold px-4 py-1.5 rounded-full mb-4 bg-[var(--primary-glow)] text-[var(--primary)] border border-[var(--primary)]/30">
-            {pool.name}
-          </span>
+          {/* Pool badge / Logo */}
+          {pool.show_logo_image ? (
+            <div className="flex justify-center mb-6">
+              <img
+                src="/logo.webp"
+                alt={pool.name}
+                style={{
+                  maxWidth: "min(380px, 85vw)",
+                  maxHeight: "130px",
+                  objectFit: "contain",
+                  borderRadius: "8px",
+                }}
+              />
+            </div>
+          ) : (
+            <span className="inline-block text-xs uppercase tracking-widest font-bold px-4 py-1.5 rounded-full mb-4 bg-[var(--primary-glow)] text-[var(--primary)] border border-[var(--primary)]/30">
+              {pool.name}
+            </span>
+          )}
 
           {/* Status & Deadline badges */}
           <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
