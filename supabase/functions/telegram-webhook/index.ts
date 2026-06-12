@@ -16,16 +16,6 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const secretParam = url.searchParams.get("secret");
-    const webhookSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
-
-    // 1. Verify webhook secret
-    if (secretParam !== webhookSecret) {
-      console.warn("Invalid webhook secret param");
-      return new Response(JSON.stringify({ ok: false, message: "Unauthorized" }), { status: 401 });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
@@ -40,10 +30,11 @@ serve(async (req) => {
     let telegramAdminChatId = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
     let telegramAdminUserId = "";
     let telegramGroupChatId = "";
+    let dbWebhookSecret = "";
 
     const { data: tgConfig } = await supabase
       .from("telegram_config")
-      .select("bot_token, admin_chat_id, admin_user_id, group_chat_id")
+      .select("bot_token, admin_chat_id, admin_user_id, group_chat_id, webhook_secret")
       .eq("id", 1)
       .maybeSingle();
 
@@ -52,6 +43,21 @@ serve(async (req) => {
       telegramAdminChatId = tgConfig.admin_chat_id || telegramAdminChatId;
       telegramAdminUserId = tgConfig.admin_user_id || "";
       telegramGroupChatId = tgConfig.group_chat_id || "";
+      dbWebhookSecret = tgConfig.webhook_secret || "";
+    }
+
+    const url = new URL(req.url);
+    const secretParam = url.searchParams.get("secret");
+    const envWebhookSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
+
+    // 1. Verify webhook secret against env variable or database config
+    const isSecretValid = 
+      (secretParam && envWebhookSecret && secretParam === envWebhookSecret) ||
+      (secretParam && dbWebhookSecret && secretParam === dbWebhookSecret);
+
+    if (!isSecretValid) {
+      console.warn("Invalid webhook secret param");
+      return new Response(JSON.stringify({ ok: false, message: "Unauthorized" }), { status: 401 });
     }
 
     const update = await req.json();
@@ -127,13 +133,13 @@ serve(async (req) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           callback_query_id: cbQuery.id,
-          text: `Este palpite já foi processado anteriormente (Status: ${bet.status}).`,
+          text: `Este palpite já foi processado anteriormente (Status: ${bet.status === "PAID" ? "PAGO" : "REPROVADO"}).`,
           show_alert: true,
         }),
       });
 
       // Update message to remove buttons
-      await updateTelegramMessage(telegramBotToken, chatId, cbQuery.message.message_id, bet, `JÁ PROCESSADO (${bet.status})`);
+      await updateTelegramMessage(telegramBotToken, chatId, cbQuery.message.message_id, bet, bet.status === "PAID" ? "✅ PAGO" : "❌ REPROVADO");
       return new Response(JSON.stringify({ ok: true, message: "Already processed" }), { status: 200 });
     }
 
@@ -195,7 +201,7 @@ serve(async (req) => {
     });
 
     // 7. Update message text to remove inline keyboard and show status
-    await updateTelegramMessage(telegramBotToken, chatId, cbQuery.message.message_id, { ...bet, status: nextStatus }, action === "approve" ? "✅ APROVADO" : "❌ RECUSADO");
+    await updateTelegramMessage(telegramBotToken, chatId, cbQuery.message.message_id, { ...bet, status: nextStatus }, action === "approve" ? "✅ PAGO" : "❌ REPROVADO");
 
     return new Response(
       JSON.stringify({
