@@ -319,7 +319,17 @@ export default function AdminDashboard() {
     setLoading(true);
 
     try {
-      const res = await callAdminApi("update-pool-config", configForm);
+      // Convert datetime-local value (browser local time) to UTC ISO string.
+      // datetime-local gives "2026-06-12T18:40" (no timezone). new Date() in the
+      // browser interprets it as LOCAL time, so .toISOString() gives correct UTC.
+      const deadlineUtc = configForm.deadline
+        ? new Date(configForm.deadline).toISOString()
+        : configForm.deadline;
+
+      const res = await callAdminApi("update-pool-config", {
+        ...configForm,
+        deadline: deadlineUtc,
+      });
       if (res.ok) {
         setSuccessMsg("Configurações do bolão salvas com sucesso!");
         setPool(res.data);
@@ -331,6 +341,7 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
 
   const handleLaunchResult = async (e: React.FormEvent) => {
     e.preventDefault();

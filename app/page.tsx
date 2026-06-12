@@ -191,16 +191,21 @@ export default function Home() {
       const activePool = pools[0] as Pool;
       setPool(activePool);
 
-      // Stats: paid + total
-      const { data: allBets } = await supabase
-        .from("bets")
-        .select("status")
+      // Stats: use public_pool_summary view (RLS-safe, no privileged access needed)
+      const { data: summary } = await supabase
+        .from("public_pool_summary")
+        .select("total_paid_bets")
+        .eq("pool_id", activePool.id)
+        .single();
+
+      // Total bets: query public_bets_consultation (view, RLS-safe) for count
+      const { count: allBetsCount } = await supabase
+        .from("public_bets_consultation")
+        .select("public_code", { count: "exact", head: true })
         .eq("pool_id", activePool.id);
 
-      if (allBets) {
-        setTotalBets(allBets.length);
-        setTotalPaid(allBets.filter((b) => b.status === "PAID").length);
-      }
+      setTotalBets(allBetsCount ?? 0);
+      setTotalPaid(Number(summary?.total_paid_bets ?? 0));
 
       await loadCaptcha();
 
@@ -276,11 +281,19 @@ export default function Home() {
   }, [pool]);
 
   const fetchStats = async (poolId: string) => {
-    const { data } = await supabase.from("bets").select("status").eq("pool_id", poolId);
-    if (data) {
-      setTotalBets(data.length);
-      setTotalPaid(data.filter((b) => b.status === "PAID").length);
-    }
+    const { data: summary } = await supabase
+      .from("public_pool_summary")
+      .select("total_paid_bets")
+      .eq("pool_id", poolId)
+      .single();
+
+    const { count: allBetsCount } = await supabase
+      .from("public_bets_consultation")
+      .select("public_code", { count: "exact", head: true })
+      .eq("pool_id", poolId);
+
+    setTotalBets(allBetsCount ?? 0);
+    setTotalPaid(Number(summary?.total_paid_bets ?? 0));
   };
 
   // ── Captcha ──────────────────────────────────────────────────────────────
