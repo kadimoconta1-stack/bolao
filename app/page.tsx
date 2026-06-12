@@ -170,6 +170,8 @@ export default function Home() {
   const [showConsulta, setShowConsulta] = useState(false);
   const [showTransparencia, setShowTransparencia] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
+  // Auto-close state (driven by client-side timer — zero Supabase quota)
+  const [deadlinePassed, setDeadlinePassed] = useState(false);
 
   const LS_KEY = "bpe5_meus_palpites";
 
@@ -258,6 +260,18 @@ export default function Home() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
+  }, [pool]);
+
+  // ── Auto-close when deadline arrives (client-side timer, zero quota) ───────
+  useEffect(() => {
+    if (!pool || pool.status === "CLOSED" || pool.status === "FINISHED") return;
+    const msUntilDeadline = new Date(pool.deadline).getTime() - Date.now();
+    if (msUntilDeadline <= 0) {
+      setDeadlinePassed(true);
+      return;
+    }
+    const timer = setTimeout(() => setDeadlinePassed(true), msUntilDeadline);
+    return () => clearTimeout(timer);
   }, [pool]);
 
   const fetchStats = async (poolId: string) => {
@@ -349,12 +363,16 @@ export default function Home() {
 
   const getThemeClass = () => (pool ? `theme-${pool.theme}` : "theme-verde");
 
-  // ── Team logo fallback ────────────────────────────────────────────────────
-  const teamLogo = (url: string | null, name: string, size = 80) =>
+  // ── Team logo — rectangular, no crop ────────────────────────────────────
+  const teamLogo = (url: string | null, name: string) =>
     url ? (
-      <img src={url} alt={name} style={{ width: size, height: size }} className="object-contain rounded-full bg-white p-1 shadow-lg" />
+      <img
+        src={url}
+        alt={name}
+        className="max-h-24 max-w-[120px] w-auto h-auto object-contain rounded-xl shadow-lg bg-white/80 p-1"
+      />
     ) : (
-      <div style={{ width: size, height: size }} className="rounded-full bg-[var(--primary)] text-white flex items-center justify-center font-black text-3xl shadow-lg">
+      <div className="w-20 h-20 rounded-xl bg-[var(--primary)] text-white flex items-center justify-center font-black text-4xl shadow-lg">
         {name[0]}
       </div>
     );
@@ -379,8 +397,8 @@ export default function Home() {
     );
   }
 
-  const isClosed = pool.status === "CLOSED" || new Date(pool.deadline) <= new Date();
   const isFinished = pool.status === "FINISHED";
+  const isClosed = !isFinished && (pool.status === "CLOSED" || deadlinePassed || new Date(pool.deadline) <= new Date());
   const isOpen = !isClosed && !isFinished;
 
   return (
@@ -413,20 +431,24 @@ export default function Home() {
           </div>
 
           {/* Teams versus */}
-          <div className="flex items-center justify-center gap-6 sm:gap-10 my-6">
-            <div className="flex flex-col items-center gap-3 flex-1">
-              {teamLogo(pool.home_team_image_url, pool.home_team, 80)}
-              <span className="font-black text-xl sm:text-2xl text-[var(--text-main)]">{pool.home_team}</span>
+          <div className="flex items-center justify-center gap-4 sm:gap-10 my-6">
+            <div className="flex flex-col items-center gap-3 flex-1 min-w-0">
+              <div className="flex items-center justify-center min-h-[6rem]">
+                {teamLogo(pool.home_team_image_url, pool.home_team)}
+              </div>
+              <span className="font-black text-lg sm:text-2xl text-[var(--text-main)] text-center leading-tight">{pool.home_team}</span>
             </div>
 
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-1 shrink-0">
               <span className="text-3xl font-black text-[var(--primary)]">VS</span>
               <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Placar Exato</span>
             </div>
 
-            <div className="flex flex-col items-center gap-3 flex-1">
-              {teamLogo(pool.away_team_image_url, pool.away_team, 80)}
-              <span className="font-black text-xl sm:text-2xl text-[var(--text-main)]">{pool.away_team}</span>
+            <div className="flex flex-col items-center gap-3 flex-1 min-w-0">
+              <div className="flex items-center justify-center min-h-[6rem]">
+                {teamLogo(pool.away_team_image_url, pool.away_team)}
+              </div>
+              <span className="font-black text-lg sm:text-2xl text-[var(--text-main)] text-center leading-tight">{pool.away_team}</span>
             </div>
           </div>
 
@@ -574,20 +596,31 @@ export default function Home() {
                 <span className="text-[10px] text-[var(--text-muted)]">Somente números com DDD.</span>
               </div>
 
-              {/* Score picker */}
               <div className="space-y-2">
                 <label className="text-sm font-bold block text-center">Seu Palpite de Placar</label>
-                <div className="flex items-center justify-center gap-4 p-5 rounded-xl border border-[var(--card-border)] bg-[var(--primary-glow)]">
-                  <div className="flex flex-col items-center gap-2 flex-1">
-                    {teamLogo(pool.home_team_image_url, pool.home_team, 48)}
-                    <span className="font-bold text-sm text-center">{pool.home_team}</span>
+                <div className="flex items-center justify-center gap-3 p-5 rounded-xl border border-[var(--card-border)] bg-[var(--primary-glow)]">
+                  <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
+                    <div className="flex items-center justify-center h-14">
+                      {pool.home_team_image_url ? (
+                        <img src={pool.home_team_image_url} alt={pool.home_team} className="max-h-12 max-w-[64px] w-auto h-auto object-contain rounded-lg bg-white/80 p-0.5 shadow" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-[var(--primary)] text-white flex items-center justify-center font-black text-xl shadow">{pool.home_team[0]}</div>
+                      )}
+                    </div>
+                    <span className="font-bold text-xs text-center leading-tight">{pool.home_team}</span>
                   </div>
                   <input type="number" min="0" max="20" value={golsCasa} onChange={(e) => setGolsCasa(e.target.value)} className="w-16 text-center text-2xl font-black custom-input" />
                   <span className="text-xl font-black text-[var(--primary)]">×</span>
                   <input type="number" min="0" max="20" value={golsVis} onChange={(e) => setGolsVis(e.target.value)} className="w-16 text-center text-2xl font-black custom-input" />
-                  <div className="flex flex-col items-center gap-2 flex-1">
-                    {teamLogo(pool.away_team_image_url, pool.away_team, 48)}
-                    <span className="font-bold text-sm text-center">{pool.away_team}</span>
+                  <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
+                    <div className="flex items-center justify-center h-14">
+                      {pool.away_team_image_url ? (
+                        <img src={pool.away_team_image_url} alt={pool.away_team} className="max-h-12 max-w-[64px] w-auto h-auto object-contain rounded-lg bg-white/80 p-0.5 shadow" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-[var(--primary)] text-white flex items-center justify-center font-black text-xl shadow">{pool.away_team[0]}</div>
+                      )}
+                    </div>
+                    <span className="font-bold text-xs text-center leading-tight">{pool.away_team}</span>
                   </div>
                 </div>
               </div>
