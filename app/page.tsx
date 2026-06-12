@@ -172,8 +172,12 @@ export default function Home() {
   const [pixCopied, setPixCopied] = useState(false);
   // Auto-close state (driven by client-side timer — zero Supabase quota)
   const [deadlinePassed, setDeadlinePassed] = useState(false);
+  // Splash screen state
+  const [showSplash, setShowSplash] = useState(false);
+  const [splashFading, setSplashFading] = useState(false);
 
   const LS_KEY = "bpe5_meus_palpites";
+  const SS_SPLASH_KEY = "bpe5_splash_seen";
 
   // ── Fetch pool & stats ───────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -237,6 +241,28 @@ export default function Home() {
     fetchData();
     loadLocalBets(syncLocalBetsStatus);
   }, [fetchData]);
+
+  // ── Splash screen trigger ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!pool) return;
+    const alreadySeen = sessionStorage.getItem(SS_SPLASH_KEY);
+    if (pool.show_splash_screen && !alreadySeen) {
+      setShowSplash(true);
+      // Auto-close after 5 seconds
+      const autoClose = setTimeout(() => dismissSplash(), 5000);
+      return () => clearTimeout(autoClose);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pool]);
+
+  const dismissSplash = () => {
+    setSplashFading(true);
+    setTimeout(() => {
+      setShowSplash(false);
+      setSplashFading(false);
+      try { sessionStorage.setItem(SS_SPLASH_KEY, "1"); } catch {}
+    }, 500);
+  };
 
 
   useEffect(() => {
@@ -451,6 +477,69 @@ export default function Home() {
 
   return (
     <div className={`${getThemeClass()} min-h-screen`}>
+      {/* Splash Screen */}
+      {showSplash && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center cursor-pointer"
+          style={{
+            background: "rgba(0,0,0,0.97)",
+            opacity: splashFading ? 0 : 1,
+            transition: "opacity 0.5s ease",
+          }}
+          onClick={dismissSplash}
+        >
+          <div
+            style={{
+              opacity: splashFading ? 0 : 1,
+              transform: splashFading ? "scale(0.97)" : "scale(1)",
+              transition: "opacity 0.5s ease, transform 0.5s ease",
+              maxWidth: "90vw",
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "24px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src="/splash.webp"
+              alt="Abertura do Bolão"
+              style={{
+                maxWidth: "min(500px, 88vw)",
+                maxHeight: "72vh",
+                objectFit: "contain",
+                borderRadius: "16px",
+                boxShadow: "0 0 80px rgba(0,0,0,0.8)",
+              }}
+            />
+            <button
+              onClick={dismissSplash}
+              style={{
+                background: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.25)",
+                color: "#fff",
+                padding: "10px 32px",
+                borderRadius: "50px",
+                fontSize: "14px",
+                fontWeight: "700",
+                cursor: "pointer",
+                backdropFilter: "blur(8px)",
+                letterSpacing: "0.05em",
+                transition: "background 0.2s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.22)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
+            >
+              Entrar no Bolão →
+            </button>
+            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "11px" }}>
+              Clique em qualquer lugar para fechar
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Modals */}
       {showConsulta && <ConsultaModal onClose={() => setShowConsulta(false)} />}
       {showTransparencia && pool && <TransparenciaModal poolId={pool.id} onClose={() => setShowTransparencia(false)} />}

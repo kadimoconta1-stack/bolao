@@ -67,7 +67,19 @@ export default function AdminDashboard() {
     pix_receiver_name: "",
     organizer_whatsapp: "",
     theme: "verde",
+    show_splash_screen: false,
   });
+
+  // Telegram config state
+  const [telegramConfigDisplay, setTelegramConfigDisplay] = useState<any>(null);
+  const [telegramForm, setTelegramForm] = useState({
+    bot_token: "",
+    admin_chat_id: "",
+    webhook_secret: "",
+  });
+  const [telegramLoading, setTelegramLoading] = useState(false);
+  const [telegramMsg, setTelegramMsg] = useState<{type: "success" | "error", text: string} | null>(null);
+  const [showTokenInput, setShowTokenInput] = useState(false);
 
   // Launch result form state
   const [homeScoreInput, setHomeScoreInput] = useState("0");
@@ -127,6 +139,8 @@ export default function AdminDashboard() {
       loadBets();
     } else if (authenticated && activeTab === "audit") {
       loadAuditLogs();
+    } else if (authenticated && activeTab === "telegram") {
+      loadTelegramConfig();
     }
   }, [activeTab, statusFilter, searchQuery]);
 
@@ -236,6 +250,7 @@ export default function AdminDashboard() {
             pix_receiver_name: p.pix_receiver_name,
             organizer_whatsapp: p.organizer_whatsapp,
             theme: p.theme,
+            show_splash_screen: p.show_splash_screen || false,
           });
 
           if (res.data.result) {
@@ -439,6 +454,72 @@ export default function AdminDashboard() {
       setErrorMsg(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTelegramConfig = async () => {
+    setTelegramLoading(true);
+    setTelegramMsg(null);
+    try {
+      const res = await callAdminApi("get-telegram-config");
+      if (res.ok) {
+        setTelegramConfigDisplay(res.data);
+        // Pre-fill the admin_chat_id in form (token/secret not sent back for security)
+        setTelegramForm(prev => ({
+          ...prev,
+          admin_chat_id: res.data.admin_chat_id || "",
+        }));
+      }
+    } catch (err: any) {
+      setTelegramMsg({ type: "error", text: err.message });
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleSaveTelegramConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTelegramMsg(null);
+    setTelegramLoading(true);
+    try {
+      const res = await callAdminApi("save-telegram-config", telegramForm);
+      if (res.ok) {
+        setTelegramMsg({ type: "success", text: res.message });
+        setTelegramForm({ bot_token: "", admin_chat_id: telegramForm.admin_chat_id, webhook_secret: "" });
+        setShowTokenInput(false);
+        loadTelegramConfig();
+      }
+    } catch (err: any) {
+      setTelegramMsg({ type: "error", text: err.message });
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    setTelegramMsg(null);
+    setTelegramLoading(true);
+    try {
+      const res = await callAdminApi("test-telegram");
+      setTelegramMsg({ type: res.ok ? "success" : "error", text: res.ok ? res.message : "Falha no teste" });
+    } catch (err: any) {
+      setTelegramMsg({ type: "error", text: err.message });
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleRegisterWebhook = async () => {
+    if (!confirm("Registrar o webhook irá vincular a URL do Supabase ao seu bot Telegram. Confirmar?")) return;
+    setTelegramMsg(null);
+    setTelegramLoading(true);
+    try {
+      const res = await callAdminApi("register-telegram-webhook");
+      setTelegramMsg({ type: res.ok ? "success" : "error", text: res.message || "Erro desconhecido" });
+    } catch (err: any) {
+      setTelegramMsg({ type: "error", text: err.message });
+    } finally {
+      setTelegramLoading(false);
     }
   };
 
@@ -978,6 +1059,19 @@ export default function AdminDashboard() {
                   </label>
                 </div>
 
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="showSplash"
+                    checked={configForm.show_splash_screen}
+                    onChange={(e) => setConfigForm({ ...configForm, show_splash_screen: e.target.checked })}
+                    className="w-4 h-4 text-emerald-600 bg-slate-950 border-slate-800 rounded focus:ring-emerald-500 focus:ring-2"
+                  />
+                  <label htmlFor="showSplash" className="font-bold text-slate-300">
+                    🖼️ Exibir tela de abertura (Splash Screen) ao acessar o site
+                  </label>
+                </div>
+
               </div>
 
               <div className="pt-4">
@@ -1140,57 +1234,198 @@ export default function AdminDashboard() {
         {activeTab === "telegram" && (
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-6 text-xs text-slate-300">
             <h2 className="text-base font-bold text-white border-b border-slate-800 pb-2">
-              🤖 Integração do Telegram Bot
+              🤖 Integração do Bot Telegram
             </h2>
 
+            {/* Status Badge */}
+            {telegramConfigDisplay && (
+              <div className={`flex items-center gap-3 p-3 rounded-xl border text-xs font-semibold ${
+                telegramConfigDisplay.configured
+                  ? "bg-emerald-950/30 border-emerald-900/50 text-emerald-400"
+                  : "bg-amber-950/30 border-amber-900/50 text-amber-400"
+              }`}>
+                <span className="text-lg">{telegramConfigDisplay.configured ? "🟢" : "🔴"}</span>
+                <div>
+                  <p>{telegramConfigDisplay.configured ? "Bot configurado e ativo" : "Bot não configurado"}</p>
+                  {telegramConfigDisplay.configured && telegramConfigDisplay.updated_at && (
+                    <p className="font-normal text-slate-400 mt-0.5">Última atualização: {new Date(telegramConfigDisplay.updated_at).toLocaleString("pt-BR")}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Feedback message */}
+            {telegramMsg && (
+              <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                telegramMsg.type === "success"
+                  ? "bg-emerald-950/30 border-emerald-900/50 text-emerald-400"
+                  : "bg-rose-950/30 border-rose-900/50 text-rose-400"
+              }`}>
+                {telegramMsg.text}
+              </div>
+            )}
+
+            {/* Credentials Form */}
             <div className="space-y-4">
-              <h3 className="text-sm font-bold text-slate-200">Como funciona a automação?</h3>
-              <p className="leading-relaxed">
-                Toda vez que um participante envia um palpite novo, ele entra no banco de dados como <b>PENDENTE</b>.
-                Caso as variáveis do Telegram estejam configuradas nas variáveis de ambiente na Vercel e no Supabase,
-                nosso backend envia uma notificação instantânea para o chat de administração do Telegram com botões interativos
-                para <b>Aprovar pagamento</b> ou <b>Recusar</b> sem precisar abrir o painel admin!
+              <h3 className="text-sm font-bold text-slate-200">🔑 Credenciais do Bot</h3>
+              <p className="leading-relaxed text-slate-400">
+                Configure os dados do seu bot abaixo. Para criar um bot, acesse{" "}
+                <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-emerald-400 hover:underline">@BotFather</a>{" "}
+                no Telegram e use o comando <code className="bg-slate-800 px-1 rounded">/newbot</code>.
               </p>
 
-              <h3 className="text-sm font-bold text-slate-200">Passo a Passo de Setup:</h3>
-              <ol className="list-decimal pl-5 space-y-2 leading-relaxed">
-                <li>
-                  <b>Criar o Bot:</b> Abra o Telegram, procure por <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-emerald-400 hover:underline">@BotFather</a> e digite `/newbot`.
-                  Copie o <b>Token</b> recebido.
-                </li>
-                <li>
-                  <b>Obter Chat ID:</b> Envie uma mensagem inicial para o seu bot recém-criado. Depois, procure por bots como `@userinfobot` ou acesse
-                  `https://api.telegram.org/bot{"<SEU_TOKEN>"}/getUpdates` no navegador para encontrar o campo `"id"` da sua conta.
-                  Esse será o <b>TELEGRAM_ADMIN_CHAT_ID</b>.
-                </li>
-                <li>
-                  <b>Webhook Secret:</b> Defina uma senha de texto forte aleatória de sua preferência. Esse será o <b>TELEGRAM_WEBHOOK_SECRET</b>.
-                </li>
-                <li>
-                  <b>Configurar Variáveis:</b> Salve essas chaves nas variáveis de ambiente da Vercel e nas Deno Edge Functions do Supabase:
-                  <div className="bg-slate-950 p-3 rounded-lg font-mono text-[10px] mt-2 border border-slate-800 space-y-1 select-all">
-                    <p>TELEGRAM_BOT_TOKEN=123456:ABC-DefGhiJkl...</p>
-                    <p>TELEGRAM_ADMIN_CHAT_ID=987654321</p>
-                    <p>TELEGRAM_WEBHOOK_SECRET=senha_secreta_webhook_aqui</p>
-                  </div>
-                </li>
-                <li>
-                  <b>Registrar o Webhook no Telegram:</b> Rode o script de setup fornecido no repositório ou faça uma requisição GET no navegador para ativar a escuta das chamadas:
-                  <div className="bg-slate-950 p-3 rounded-lg font-mono text-[10px] mt-2 border border-slate-800 break-all select-all">
-                    https://api.telegram.org/bot<b>{"<SEU_BOT_TOKEN>"}</b>/setWebhook?url=https://<b>{"<SEU_PROJETO_SUPABASE>"}</b>.supabase.co/functions/v1/telegram-webhook?secret=<b>{"<TELEGRAM_WEBHOOK_SECRET>"}</b>
-                  </div>
-                </li>
-              </ol>
+              <form onSubmit={handleSaveTelegramConfig} className="space-y-4">
+                {/* Token Field */}
+                <div className="flex flex-col space-y-1">
+                  <label className="font-bold text-slate-400">Token do Bot (TELEGRAM_BOT_TOKEN)</label>
+                  {telegramConfigDisplay?.configured && !showTokenInput ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 custom-input bg-slate-950 border-slate-800 font-mono text-slate-500 select-all">
+                        {telegramConfigDisplay.bot_token_masked}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowTokenInput(true)}
+                        className="px-3 py-2 text-xs bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        ✏️ Alterar
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: 123456789:ABCDefGhiJkl_mNOPqrstu..."
+                      value={telegramForm.bot_token}
+                      onChange={(e) => setTelegramForm({ ...telegramForm, bot_token: e.target.value })}
+                      className="custom-input bg-slate-950 border-slate-800 font-mono text-xs"
+                    />
+                  )}
+                </div>
 
-              <div className="p-4 bg-emerald-950/20 border border-emerald-900/50 rounded-xl">
-                <p className="font-bold text-emerald-400 mb-1">💡 DICA DE SEGURANÇA:</p>
-                <p className="leading-relaxed">
-                  A nossa função valida rigorosamente se as requisições de callback partem de fato do <b>TELEGRAM_ADMIN_CHAT_ID</b>.
-                  Qualquer outro usuário do Telegram que adicionar ou tentar conversar com o bot e clicar nos botões receberá um alerta de "Acesso Negado",
-                  impedindo fraudes em palpites.
-                </p>
-              </div>
+                {/* Chat ID Field */}
+                <div className="flex flex-col space-y-1">
+                  <label className="font-bold text-slate-400">Chat ID do Administrador (TELEGRAM_ADMIN_CHAT_ID)</label>
+                  <div className="space-y-1.5">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: 987654321"
+                      value={telegramForm.admin_chat_id}
+                      onChange={(e) => setTelegramForm({ ...telegramForm, admin_chat_id: e.target.value })}
+                      className="custom-input bg-slate-950 border-slate-800 font-mono text-xs"
+                    />
+                    <p className="text-slate-500 leading-relaxed">
+                      Para obter o Chat ID: abra o Telegram, envie uma mensagem para o seu bot criado e então acesse:
+                      <code className="block bg-slate-800 px-2 py-1 rounded mt-1 break-all select-all">https://api.telegram.org/bot{"<SEU_TOKEN>"}/getUpdates</code>
+                      Procure pelo campo <code className="bg-slate-800 px-1 rounded">"id"</code> dentro de <code className="bg-slate-800 px-1 rounded">"from"</code>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Webhook Secret Field */}
+                <div className="flex flex-col space-y-1">
+                  <label className="font-bold text-slate-400">Webhook Secret (TELEGRAM_WEBHOOK_SECRET)</label>
+                  {telegramConfigDisplay?.configured && !showTokenInput ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 custom-input bg-slate-950 border-slate-800 font-mono text-slate-500 select-all">
+                        {telegramConfigDisplay.webhook_secret_masked}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowTokenInput(true)}
+                        className="px-3 py-2 text-xs bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        ✏️ Alterar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Crie uma senha aleatória forte (ex: minha_senha_webhook_123)"
+                        value={telegramForm.webhook_secret}
+                        onChange={(e) => setTelegramForm({ ...telegramForm, webhook_secret: e.target.value })}
+                        className="custom-input bg-slate-950 border-slate-800 font-mono text-xs"
+                      />
+                      <p className="text-slate-500">Use qualquer texto secreto — é um token de segurança para validar as chamadas do Telegram.</p>
+                    </div>
+                  )}
+                </div>
+
+                {showTokenInput && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowTokenInput(false); setTelegramForm({ bot_token: "", admin_chat_id: telegramForm.admin_chat_id, webhook_secret: "" }); }}
+                    className="text-xs text-slate-400 hover:text-slate-300 underline cursor-pointer"
+                  >
+                    Cancelar alteração
+                  </button>
+                )}
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  {(showTokenInput || !telegramConfigDisplay?.configured) && (
+                    <button
+                      type="submit"
+                      disabled={telegramLoading}
+                      className="btn-primary py-2 px-5 flex items-center gap-2"
+                    >
+                      {telegramLoading ? <span className="spinner" /> : "💾 Salvar Credenciais"}
+                    </button>
+                  )}
+                </div>
+              </form>
             </div>
+
+            {/* Action Buttons */}
+            {telegramConfigDisplay?.configured && (
+              <div className="border-t border-slate-800 pt-4 space-y-4">
+                <h3 className="text-sm font-bold text-slate-200">🚀 Ações</h3>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={handleTestTelegram}
+                    disabled={telegramLoading}
+                    className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl bg-blue-700 hover:bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    {telegramLoading ? <span className="spinner border-t-white" /> : "📡 Testar Conexão"}
+                  </button>
+                  <button
+                    onClick={handleRegisterWebhook}
+                    disabled={telegramLoading}
+                    className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    {telegramLoading ? <span className="spinner border-t-white" /> : "🔗 Registrar Webhook"}
+                  </button>
+                  {!telegramConfigDisplay.configured || showTokenInput ? null : (
+                    <button
+                      type="button"
+                      onClick={() => setShowTokenInput(true)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-700 hover:bg-slate-600 text-white transition-colors cursor-pointer"
+                    >
+                      ✏️ Atualizar Credenciais
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-4 bg-emerald-950/20 border border-emerald-900/50 rounded-xl">
+                  <p className="font-bold text-emerald-400 mb-1">💡 Como usar:</p>
+                  <ol className="list-decimal pl-4 space-y-1 leading-relaxed">
+                    <li>Salve as credenciais acima.</li>
+                    <li>Clique em <b>Testar Conexão</b> — você receberá uma mensagem de confirmação no seu Telegram.</li>
+                    <li>Clique em <b>Registrar Webhook</b> para vincular o bot ao sistema (precisa fazer apenas uma vez).</li>
+                    <li>Pronto! Novos palpites gerarão notificações automáticas com botões de Aprovar/Recusar.</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            {!telegramConfigDisplay?.configured && (
+              <div className="p-4 bg-amber-950/20 border border-amber-900/50 rounded-xl text-xs text-amber-400">
+                <p className="font-bold mb-1">⚠️ Bot ainda não configurado</p>
+                <p className="leading-relaxed">Preencha os campos acima e salve as credenciais para ativar as notificações automáticas do Telegram.</p>
+              </div>
+            )}
           </div>
         )}
 

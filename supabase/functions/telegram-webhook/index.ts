@@ -28,14 +28,30 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const telegramBotToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
-    const telegramAdminChatId = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
 
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error("Missing Supabase configuration");
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Load telegram credentials: prefer env vars, fall back to DB config
+    let telegramBotToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+    let telegramAdminChatId = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
+
+    if (!telegramBotToken || !telegramAdminChatId) {
+      const { data: tgConfig } = await supabase
+        .from("telegram_config")
+        .select("bot_token, admin_chat_id")
+        .eq("id", 1)
+        .maybeSingle();
+
+      if (tgConfig) {
+        telegramBotToken = tgConfig.bot_token || telegramBotToken;
+        telegramAdminChatId = tgConfig.admin_chat_id || telegramAdminChatId;
+      }
+    }
+
     const update = await req.json();
 
     console.log("Telegram Webhook Update received:", JSON.stringify(update));

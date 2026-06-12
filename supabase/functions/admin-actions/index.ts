@@ -473,6 +473,7 @@ serve(async (req) => {
         pix_receiver_name: config.pix_receiver_name,
         organizer_whatsapp: config.organizer_whatsapp.replace(/\D/g, ""),
         theme: config.theme || "verde",
+        show_splash_screen: config.show_splash_screen === true,
         updated_at: new Date().toISOString(),
       };
 
@@ -622,6 +623,169 @@ serve(async (req) => {
             prizePerWinner,
           }
         }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // =========================================================================
+    // ACTION: GET TELEGRAM CONFIG
+    // =========================================================================
+    if (action === "get-telegram-config") {
+      const { data: tgConfig } = await supabase
+        .from("telegram_config")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+
+      if (!tgConfig) {
+        return new Response(
+          JSON.stringify({ ok: true, data: { configured: false, bot_token_masked: "", admin_chat_id: "", webhook_secret_masked: "" } }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Mask token and secret for display security
+      const maskValue = (val: string) => val.length > 8 ? val.substring(0, 6) + "••••••" + val.substring(val.length - 4) : (val ? "••••••" : "");
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data: {
+            configured: tgConfig.bot_token.length > 0,
+            bot_token_masked: maskValue(tgConfig.bot_token),
+            admin_chat_id: tgConfig.admin_chat_id,
+            webhook_secret_masked: maskValue(tgConfig.webhook_secret),
+            updated_at: tgConfig.updated_at,
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // =========================================================================
+    // ACTION: SAVE TELEGRAM CONFIG
+    // =========================================================================
+    if (action === "save-telegram-config") {
+      const { bot_token, admin_chat_id, webhook_secret } = payload;
+
+      if (!bot_token || !admin_chat_id || !webhook_secret) {
+        return new Response(
+          JSON.stringify({ ok: false, message: "Todos os campos são obrigatórios: Token do Bot, Chat ID e Webhook Secret." }),
+          { headers: corsHeaders, status: 400 }
+        );
+      }
+
+      const { error: upsertErr } = await supabase
+        .from("telegram_config")
+        .upsert({ id: 1, bot_token, admin_chat_id, webhook_secret, updated_at: new Date().toISOString() });
+
+      if (upsertErr) throw upsertErr;
+
+      await supabase.from("audit_logs").insert({
+        action: "SAVE_TELEGRAM_CONFIG",
+        entity_type: "TELEGRAM_CONFIG",
+        actor: "ADMIN",
+        details: { admin_chat_id },
+      });
+
+      return new Response(
+        JSON.stringify({ ok: true, message: "Configurações do Telegram salvas com sucesso!" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // =========================================================================
+    // ACTION: TEST TELEGRAM CONNECTION
+    // =========================================================================
+    if (action === "test-telegram") {
+      // Load config from DB
+      const { data: tgConfig } = await supabase
+        .from("telegram_config")
+        .select("bot_token, admin_chat_id")
+        .eq("id", 1)
+        .maybeSingle();
+
+      const botToken = tgConfig?.bot_token || Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
+      const chatId = tgConfig?.admin_chat_id || Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") || "";
+
+      if (!botToken || !chatId) {
+        return new Response(
+          JSON.stringify({ ok: false, message: "Token ou Chat ID não configurados. Salve as credenciais primeiro." }),
+          { headers: corsHeaders, status: 400 }
+        );
+      }
+
+      const testRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: "✅ *Teste de Conexão — Bolão de Placar Exato*\n\nSua integração com o Bot Telegram está funcionando corretamente! As notificações de novos palpites serão enviadas aqui.",
+          parse_mode: "Markdown",
+        }),
+      });
+
+      const testJson = await testRes.json();
+
+      if (!testJson.ok) {
+        return new Response(
+          JSON.stringify({ ok: false, message: `Erro ao enviar mensagem de teste: ${testJson.description || "Erro desconhecido"}. Verifique o token e o chat ID.` }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ ok: true, message: "✅ Mensagem de teste enviada com sucesso! Verifique o seu Telegram." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // =========================================================================
+    // ACTION: REGISTER TELEGRAM WEBHOOK
+    // =========================================================================
+    if (action === "register-telegram-webhook") {
+      const { data: tgConfig } = await supabase
+        .from("telegram_config")
+        .select("bot_token, webhook_secret")
+        .eq("id", 1)
+        .maybeSingle();
+
+      const botToken = tgConfig?.bot_token || Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
+      const webhookSecret = tgConfig?.webhook_secret || Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+
+      if (!botToken || !webhookSecret) {
+        return new Response(
+          JSON.stringify({ ok: false, message: "Token ou Webhook Secret não configurados. Salve as credenciais primeiro." }),
+          { headers: corsHeaders, status: 400 }
+        );
+      }
+
+      const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook?secret=${webhookSecret}`;
+
+      const webhookRes = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: webhookUrl }),
+      });
+
+      const webhookJson = await webhookRes.json();
+
+      if (!webhookJson.ok) {
+        return new Response(
+          JSON.stringify({ ok: false, message: `Erro ao registrar webhook: ${webhookJson.description || "Erro desconhecido"}` }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      await supabase.from("audit_logs").insert({
+        action: "REGISTER_TELEGRAM_WEBHOOK",
+        entity_type: "TELEGRAM_CONFIG",
+        actor: "ADMIN",
+        details: { webhook_url: webhookUrl },
+      });
+
+      return new Response(
+        JSON.stringify({ ok: true, message: `✅ Webhook registrado com sucesso! URL: ${webhookUrl}` }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
