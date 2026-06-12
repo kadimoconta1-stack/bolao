@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -169,12 +169,13 @@ serve(async (req) => {
     // =========================================================================
     // AUTHENTICATE SESSION (For all other actions)
     // =========================================================================
-    const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ ok: false, message: "Token de autorização ausente.", errorCode: "UNAUTHORIZED" }), { headers: corsHeaders, status: 401 });
+    // Admin session token is sent in x-admin-token (Authorization carries the anon key for Supabase gateway).
+    const adminToken = req.headers.get("x-admin-token") ?? "";
+    if (!adminToken) {
+      return new Response(JSON.stringify({ ok: false, message: "Token de sessão ausente. Faça login novamente.", errorCode: "UNAUTHORIZED" }), { headers: corsHeaders, status: 401 });
     }
 
-    const token = authHeader.substring(7);
+    const token = adminToken;
     const tokenHash = await hashString(token);
 
     const { data: session, error: sessionFetchError } = await supabase

@@ -150,13 +150,18 @@ export default function AdminDashboard() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
+    // Always send anon key as Authorization so Supabase gateway lets the request through.
+    // The actual admin session token is sent separately in x-admin-token.
+    const currentToken = token || localStorage.getItem(LS_TOKEN_KEY) || "";
+
     const headers: any = {
       "Content-Type": "application/json",
       "apikey": supabaseAnonKey,
+      "Authorization": `Bearer ${supabaseAnonKey}`,
     };
 
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+    if (currentToken) {
+      headers["x-admin-token"] = currentToken;
     }
 
     const res = await fetch(`${supabaseUrl}/functions/v1/admin-actions`, {
