@@ -467,14 +467,24 @@ export default function Home() {
             {pool.name}
           </span>
 
-          {/* Status badge */}
-          <div className="mb-6">
+          {/* Status & Deadline badges */}
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
             {isFinished ? (
               <span className="status-badge badge-finished text-sm px-4 py-1.5">🏁 FINALIZADO</span>
             ) : isClosed ? (
-              <span className="status-badge badge-closed text-sm px-4 py-1.5">🔒 ENCERRADO</span>
+              <>
+                <span className="status-badge badge-closed text-sm px-4 py-1.5">🔒 ENCERRADO</span>
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                  Encerrado em: {new Date(pool.deadline).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </>
             ) : (
-              <span className="status-badge badge-open text-sm px-4 py-1.5 animate-pulse">🟢 ABERTO PARA PALPITES</span>
+              <>
+                <span className="status-badge badge-open text-sm px-4 py-1.5 animate-pulse">🟢 ABERTO PARA PALPITES</span>
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                  ⏰ Limite: {new Date(pool.deadline).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </>
             )}
           </div>
 
@@ -497,31 +507,6 @@ export default function Home() {
                 {teamLogo(pool.away_team_image_url, pool.away_team)}
               </div>
               <span className="font-black text-lg sm:text-2xl text-[var(--text-main)] text-center leading-tight">{pool.away_team}</span>
-            </div>
-          </div>
-
-          {/* Stats strip */}
-          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 mt-4">
-            <div className="text-center">
-              <span className="block text-3xl sm:text-4xl font-black text-[var(--primary)]">{totalBets}</span>
-              <span className="text-xs uppercase font-bold tracking-wider text-[var(--text-muted)]">Total de Palpites</span>
-            </div>
-            <div className="w-px h-10 bg-[var(--card-border)] hidden sm:block" />
-            <div className="text-center">
-              <span className="block text-3xl sm:text-4xl font-black text-[var(--primary)]">{totalPaid}</span>
-              <span className="text-xs uppercase font-bold tracking-wider text-[var(--text-muted)]">Palpites Pagos</span>
-            </div>
-            <div className="w-px h-10 bg-[var(--card-border)] hidden sm:block" />
-            <div className="text-center">
-              <span className="block text-xl sm:text-2xl font-black text-[var(--primary)]">{formatCurrency(pool.bet_amount)}</span>
-              <span className="text-xs uppercase font-bold tracking-wider text-[var(--text-muted)]">Por Palpite</span>
-            </div>
-            <div className="w-px h-10 bg-[var(--card-border)] hidden sm:block" />
-            <div className="text-center">
-              <span className="block text-base sm:text-lg font-black text-rose-500">
-                {new Date(pool.deadline).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-              </span>
-              <span className="text-xs uppercase font-bold tracking-wider text-[var(--text-muted)]">Prazo Limite</span>
             </div>
           </div>
 
@@ -728,6 +713,34 @@ export default function Home() {
             🔒 Bolão encerrado para novos palpites.
           </section>
         )}
+
+        {/* Stats card below the action card */}
+        <section className="glass-card p-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col justify-center items-center">
+              <span className="text-xl sm:text-2xl mb-1">📩</span>
+              <span className="block text-2xl sm:text-3xl font-black text-[var(--primary)]">{totalBets}</span>
+              <span className="text-[10px] sm:text-xs uppercase font-bold tracking-wider text-[var(--text-muted)]">Total de Palpites</span>
+            </div>
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col justify-center items-center">
+              <span className="text-xl sm:text-2xl mb-1">✅</span>
+              <span className="block text-2xl sm:text-3xl font-black text-[var(--primary)]">{totalPaid}</span>
+              <span className="text-[10px] sm:text-xs uppercase font-bold tracking-wider text-[var(--text-muted)]">Palpites Pagos</span>
+            </div>
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col justify-center items-center">
+              <span className="text-xl sm:text-2xl mb-1">🏆</span>
+              <span className="block text-2xl sm:text-3xl font-black text-emerald-500">
+                {formatCurrency(totalPaid * pool.bet_amount * (pool.prize_percent / 100))}
+              </span>
+              <span className="text-[10px] sm:text-xs uppercase font-bold tracking-wider text-[var(--text-muted)]">Prêmio Estimado</span>
+            </div>
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col justify-center items-center">
+              <span className="text-xl sm:text-2xl mb-1">🎫</span>
+              <span className="block text-2xl sm:text-3xl font-black text-[var(--primary)]">{formatCurrency(pool.bet_amount)}</span>
+              <span className="text-[10px] sm:text-xs uppercase font-bold tracking-wider text-[var(--text-muted)]">Por Palpite</span>
+            </div>
+          </div>
+        </section>
 
         {/* Rules */}
         <section className="glass-card p-6 space-y-4">
