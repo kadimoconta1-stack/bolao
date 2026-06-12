@@ -32,11 +32,17 @@ serve(async (req) => {
     let telegramGroupChatId = "";
     let dbWebhookSecret = "";
 
-    const { data: tgConfig } = await supabase
+    const { data: tgConfig, error: tgError } = await supabase
       .from("telegram_config")
       .select("bot_token, admin_chat_id, admin_user_id, group_chat_id, webhook_secret")
       .eq("id", 1)
       .maybeSingle();
+
+    if (tgError) {
+      console.error("Error loading telegram config from DB:", tgError);
+    } else {
+      console.log("Loaded telegram config from DB:", tgConfig);
+    }
 
     if (tgConfig) {
       telegramBotToken = tgConfig.bot_token || telegramBotToken;
@@ -50,13 +56,21 @@ serve(async (req) => {
     const secretParam = url.searchParams.get("secret");
     const envWebhookSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 
+    console.log("Secret debug:", {
+      secretParam,
+      dbWebhookSecret,
+      envWebhookSecret,
+      telegramGroupChatId,
+      telegramAdminUserId
+    });
+
     // 1. Verify webhook secret against env variable or database config
     const isSecretValid = 
       (secretParam && envWebhookSecret && secretParam === envWebhookSecret) ||
       (secretParam && dbWebhookSecret && secretParam === dbWebhookSecret);
 
     if (!isSecretValid) {
-      console.warn("Invalid webhook secret param");
+      console.warn("Invalid webhook secret param:", { secretParam, dbWebhookSecret, envWebhookSecret });
       return new Response(JSON.stringify({ ok: false, message: "Unauthorized" }), { status: 401 });
     }
 
