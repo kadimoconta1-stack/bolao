@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <?!= include('Styles'); ?>
+</head>
+<body>
+
+<header class="topo">
+  <h1>⚙️ Painel Admin</h1>
+  <div class="sub" id="admSub">Bolão Placar Exato V5</div>
+</header>
+
+<div class="admin-container">
+
+  <!-- LOGIN -->
+  <div class="card login-box" id="loginCard">
+    <h2>🔐 Login Administrativo</h2>
+    <div id="loginAlert" class="alert"></div>
+    <label>Senha</label>
+    <input type="password" id="senha" placeholder="Senha admin" onkeydown="if(event.key==='Enter')fazerLogin()">
+    <button class="btn" id="btnLogin" onclick="fazerLogin()">Entrar</button>
+  </div>
+
+  <!-- PAINEL -->
+  <div id="painel" class="hidden">
+    <div class="tabs">
+      <button class="active" onclick="aba('dash',this)">📊 Dashboard</button>
+      <button onclick="aba('palpites',this)">📝 Palpites</button>
+      <button onclick="aba('resultado',this)">🏁 Resultado</button>
+      <button onclick="aba('ganhadores',this)">🏆 Ganhadores</button>
+      <button onclick="aba('auditoria',this)">📋 Auditoria</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="tab-dash" class="tab-content">
+      <div style="text-align:right;margin-bottom:8px">
+        <button class="btn btn-green btn-sm" id="btnAtualizarDash" onclick="atualizarTudo()">🔄 Atualizar Dados</button>
+      </div>
+      <div class="grid-cards">
+        <div class="mini-card"><div class="num" id="dTotal">0</div><div class="lbl">Total</div></div>
+        <div class="mini-card green"><div class="num" id="dPagos">0</div><div class="lbl">Pagos</div></div>
+        <div class="mini-card gold"><div class="num" id="dPend">0</div><div class="lbl">Pendentes</div></div>
+        <div class="mini-card"><div class="num" id="dRec" style="color:var(--red)">0</div><div class="lbl">Recusados</div></div>
+        <div class="mini-card"><div class="num" id="dArrec" style="font-size:1.1rem">R$ 0</div><div class="lbl">Arrecadação</div></div>
+        <div class="mini-card gold"><div class="num" id="dPremio" style="font-size:1.1rem">R$ 0</div><div class="lbl">Prêmio 75%</div></div>
+      </div>
+      <div class="card">
+        <h2>Status do Bolão</h2>
+        <p>Status atual: <b id="dStatus">—</b></p>
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn btn-red btn-sm" onclick="acaoBolao('fechar')">🔒 Fechar Bolão</button>
+          <button class="btn btn-green btn-sm" onclick="acaoBolao('reabrir')">🔓 Reabrir Bolão</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PALPITES -->
+    <div id="tab-palpites" class="tab-content hidden">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <h2 style="margin:0">Palpites</h2>
+          <button class="btn btn-green btn-sm" id="btnAtualizar" onclick="atualizarPalpites()">🔄 Atualizar</button>
+        </div>
+        <input type="text" id="busca" placeholder="Buscar por nome, whatsapp, código ou placar..." onkeyup="renderPalpites()" style="margin-top:12px">
+        <div class="filtros" style="margin-top:12px">
+          <button class="active" data-f="TODOS" onclick="setFiltro(this)">Todos (<span id="cnt-todos">0</span>)</button>
+          <button data-f="PENDENTE" onclick="setFiltro(this)">Pendentes (<span id="cnt-pendente">0</span>)</button>
+          <button data-f="PAGO" onclick="setFiltro(this)">Pagos (<span id="cnt-pago">0</span>)</button>
+          <button data-f="RECUSADO" onclick="setFiltro(this)">Recusados (<span id="cnt-recusado">0</span>)</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data</th><th>Código</th><th>Nome</th><th>WhatsApp</th><th>Placar</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="palpitesBody"><tr><td colspan="8" class="center muted">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTADO -->
+    <div id="tab-resultado" class="tab-content hidden">
+      <div class="card">
+        <h2>🏁 Lançar Resultado Final</h2>
+        <div id="resAlert" class="alert"></div>
+        <div class="placar-row">
+          <span class="nm" id="rCasa" style="font-weight:700;min-width:80px;text-align:center">Casa</span>
+          <input type="number" id="rGolsCasa" min="0" max="20" value="0">
+          <span class="x">×</span>
+          <input type="number" id="rGolsVis" min="0" max="20" value="0">
+          <span class="nm" id="rVis" style="font-weight:700;min-width:80px;text-align:center">Visitante</span>
+        </div>
+        <p class="muted center">⚠️ Ao lançar, o bolão será fechado automaticamente.</p>
+        <p class="muted center" style="margin-top:6px">💡 Só palpites <b>PAGOS</b> com o placar exato contam como ganhadores!</p>
+        <button class="btn btn-green" id="btnResultado" onclick="lancar()">🏆 Lançar Resultado</button>
+      </div>
+    </div>
+
+    <!-- GANHADORES -->
+    <div id="tab-ganhadores" class="tab-content hidden">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <h2 style="margin:0">🏆 Ganhadores</h2>
+          <button class="btn btn-green btn-sm" id="btnGanhadores" onclick="carregarGanhadores()">🔄 Atualizar</button>
+        </div>
+        <div id="ganhadoresConteudo" style="margin-top:12px"><p class="muted">Clique em Atualizar para carregar.</p></div>
+      </div>
+    </div>
+
+    <!-- AUDITORIA -->
+    <div id="tab-auditoria" class="tab-content hidden">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <h2 style="margin:0">📋 Auditoria</h2>
+          <button class="btn btn-green btn-sm" onclick="carregarAuditoria()">🔄 Atualizar</button>
+        </div>
+        <div class="table-wrap" style="margin-top:12px">
+          <table>
+            <thead><tr><th>Data</th><th>Ação</th><th>Código</th><th>De→Para</th><th>Obs</th></tr></thead>
+            <tbody id="auditBody"><tr><td colspan="5" class="center muted">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<?!= include('Scripts'); ?>
+<script>
+  var TOKEN='', todosPalpites=[], filtroAtual='TODOS', CFGADM=null;
+
+  function fazerLogin(){
+    var alert=$('loginAlert');alert.style.display='none';
+    var btn=$('btnLogin');btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Entrando...';
+    call('loginAdmin',[$('senha').value]).then(function(r){
+      btn.disabled=false;btn.textContent='Entrar';
+      if(r.ok){
+        TOKEN=r.data.token;
+        $('loginCard').classList.add('hidden');
+        $('painel').classList.remove('hidden');
+        carregarTudo();
+      }else{fmtMsg(alert,'error',r.message);}
+    }).catch(function(){btn.disabled=false;btn.textContent='Entrar';fmtMsg(alert,'error','Erro ao conectar.');});
+  }
+
+  function carregarTudo(){carregarDash();carregarPalpites();carregarConfig();}
+
+  function carregarConfig(){
+    call('getConfigPublica').then(function(r){
+      if(!r.ok)return;CFGADM=r.data;
+      aplicarCores(r.data);
+      $('admSub').textContent=r.data.nomeBolao+' • '+r.data.timeCasa+' vs '+r.data.timeVisitante;
+      $('rCasa').textContent=r.data.timeCasa;$('rVis').textContent=r.data.timeVisitante;
+    });
+  }
+
+  function sessaoExpirou(r){
+    if(r&&r.errorCode==='SESSAO_INVALIDA'){
+      alert('Sua sessão expirou. Faça login novamente.');
+      location.reload();return true;
+    }
+    return false;
+  }
+
+  function carregarDash(){
+    call('getDashboardAdmin',[TOKEN]).then(function(r){
+      if(sessaoExpirou(r))return;
+      if(!r.ok)return;
+      $('dTotal').textContent=r.data.total;
+      $('dPagos').textContent=r.data.pagos;
+      $('dPend').textContent=r.data.pendentes;
+      $('dRec').textContent=r.data.recusados;
+      $('dArrec').textContent=r.data.arrecadadoFmt;
+      $('dPremio').textContent=r.data.premioFmt;
+      $('dStatus').textContent=r.data.bolaoEncerrado?'ENCERRADO':r.data.statusBolao;
+    });
+  }
+
+  function carregarPalpites(){
+    call('listarPalpitesAdmin',[TOKEN]).then(function(r){
+      if(sessaoExpirou(r))return;
+      if(!r.ok){$('palpitesBody').innerHTML='<tr><td colspan="8" class="center">'+r.message+'</td></tr>';return;}
+      todosPalpites=r.data;renderPalpites();
+    });
+  }
+
+  function atualizarPalpites(){
+    var btn=$('btnAtualizar');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Atualizando...';}
+    call('listarPalpitesAdmin',[TOKEN]).then(function(r){
+      if(btn){btn.disabled=false;btn.innerHTML='🔄 Atualizar';}
+      if(sessaoExpirou(r))return;
+      if(r.ok){todosPalpites=r.data;renderPalpites();}else alert(r.message);
+    }).catch(function(){
+      if(btn){btn.disabled=false;btn.innerHTML='🔄 Atualizar';}
+      alert('Erro de comunicação. Faça login novamente.');location.reload();
+    });
+  }
+
+  function atualizarTudo(){
+    var btn=$('btnAtualizarDash');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Atualizando...';}
+    Promise.all([call('getDashboardAdmin',[TOKEN]),call('listarPalpitesAdmin',[TOKEN])]).then(function(res){
+      if(btn){btn.disabled=false;btn.innerHTML='🔄 Atualizar Dados';}
+      if(sessaoExpirou(res[0])||sessaoExpirou(res[1]))return;
+      var d=res[0];
+      if(d.ok){
+        $('dTotal').textContent=d.data.total;$('dPagos').textContent=d.data.pagos;
+        $('dPend').textContent=d.data.pendentes;$('dRec').textContent=d.data.recusados;
+        $('dArrec').textContent=d.data.arrecadadoFmt;$('dPremio').textContent=d.data.premioFmt;
+        $('dStatus').textContent=d.data.bolaoEncerrado?'ENCERRADO':d.data.statusBolao;
+      }
+      var p=res[1];if(p.ok){todosPalpites=p.data;renderPalpites();}
+    }).catch(function(){
+      if(btn){btn.disabled=false;btn.innerHTML='🔄 Atualizar Dados';}
+      alert('Erro de comunicação. Faça login novamente.');location.reload();
+    });
+  }
+
+  function setFiltro(btn){
+    document.querySelectorAll('.filtros button').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');filtroAtual=btn.dataset.f;renderPalpites();
+  }
+
+  function renderPalpites(){
+    var cT=0,cP=0,cG=0,cR=0;
+    todosPalpites.forEach(function(p){
+      cT++;
+      if(p.status==='PENDENTE')cP++;else if(p.status==='PAGO')cG++;else if(p.status==='RECUSADO')cR++;
+    });
+    if($('cnt-todos'))$('cnt-todos').textContent=cT;
+    if($('cnt-pendente'))$('cnt-pendente').textContent=cP;
+    if($('cnt-pago'))$('cnt-pago').textContent=cG;
+    if($('cnt-recusado'))$('cnt-recusado').textContent=cR;
+
+    var busca=$('busca').value.toLowerCase();
+    var lista=todosPalpites.filter(function(p){
+      if(filtroAtual!=='TODOS'&&p.status!==filtroAtual)return false;
+      if(busca){
+        var txt=(p.nome+' '+p.whatsapp+' '+p.codigo+' '+p.placar).toLowerCase();
+        if(txt.indexOf(busca)===-1)return false;
+      }
+      return true;
+    });
+    if(!lista.length){$('palpitesBody').innerHTML='<tr><td colspan="8" class="center muted">Nenhum palpite.</td></tr>';return;}
+    $('palpitesBody').innerHTML=lista.map(function(p){
+      var stClass=p.status==='PAGO'?'st-pago':(p.status==='RECUSADO'?'st-recusado':'st-pendente');
+      var whats=(p.whatsapp||'').replace(/\D/g,'');
+      return '<tr>'+
+        '<td>'+p.data+'</td>'+
+        '<td><b>'+p.codigo+'</b></td>'+
+        '<td>'+p.nome+'</td>'+
+        '<td>'+p.whatsapp+'<br>'+
+          '<button class="btn-sm btn-outline" onclick="copiar(\''+whats+'\',this)">Copiar</button> '+
+          '<a class="btn-sm btn-outline" style="text-decoration:none" target="_blank" href="https://wa.me/'+whats+'">Abrir</a></td>'+
+        '<td>'+p.placar+'</td>'+
+        '<td>'+p.valor+'</td>'+
+        '<td><span class="status-tag '+stClass+'">'+p.status+'</span><br><small class="muted">'+(p.obs||'')+'</small></td>'+
+        '<td style="white-space:nowrap">'+
+          '<button class="btn-sm btn-green" onclick="acao(\''+p.codigo+'\',\'PAGO\')">Pago</button>'+
+          '<button class="btn-sm btn-outline" onclick="acao(\''+p.codigo+'\',\'PENDENTE\')">Pend.</button>'+
+          '<button class="btn-sm btn-red" onclick="recusar(\''+p.codigo+'\')">Recusar</button>'+
+          '<button class="btn-sm btn-outline" onclick="obs(\''+p.codigo+'\')">Obs</button>'+
+        '</td></tr>';
+    }).join('');
+  }
+
+  function acao(cod,status){
+    call('alterarStatusPalpite',[TOKEN,cod,status,'']).then(function(r){
+      if(sessaoExpirou(r))return;
+      if(r.ok){carregarPalpites();carregarDash();}else alert(r.message);
+    });
+  }
+  function recusar(cod){
+    var obs=prompt('Motivo da recusa (opcional):')||'';
+    call('recusarPalpite',[TOKEN,cod,obs]).then(function(r){
+      if(sessaoExpirou(r))return;
+      if(r.ok){carregarPalpites();carregarDash();}else alert(r.message);
+    });
+  }
+  function obs(cod){
+    var o=prompt('Observação:');if(o===null)return;
+    call('adicionarObservacao',[TOKEN,cod,o]).then(function(r){
+      if(sessaoExpirou(r))return;
+      if(r.ok)carregarPalpites();else alert(r.message);
+    });
+  }
+
+  function acaoBolao(tipo){
+    var fn=tipo==='fechar'?'fecharBolao':'reabrirBolao';
+    if(!confirm('Confirma '+tipo+' o bolão?'))return;
+    call(fn,[TOKEN]).then(function(r){if(sessaoExpirou(r))return;alert(r.message);carregarDash();});
+  }
+
+  function lancar(){
+    var alert=$('resAlert');alert.style.display='none';
+    if(!confirm('Confirma o lançamento do resultado? O bolão será fechado.'))return;
+    var btn=$('btnResultado');btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Processando...';
+    call('lancarResultado',[TOKEN,$('rGolsCasa').value,$('rGolsVis').value]).then(function(r){
+      btn.disabled=false;btn.innerHTML='🏆 Lançar Resultado';
+      if(sessaoExpirou(r))return;
+      if(r.ok){
+        var d=r.data;
+        var msg='Resultado: '+d.timeCasa+' '+d.placarFinal+' '+d.timeVisitante+' | Ganhadores: '+d.qtdGanhadores+' | Prêmio/ganhador: '+d.premioPorGanhadorFmt;
+        fmtMsg(alert,'success',msg);
+        carregarDash();carregarGanhadores();
+      }else{fmtMsg(alert,'error',r.message);}
+    }).catch(function(){
+      btn.disabled=false;btn.innerHTML='🏆 Lançar Resultado';
+      fmtMsg(alert,'error','Erro de comunicação.');
+    });
+  }
+
+  // GANHADORES CORRIGIDO
+  function carregarGanhadores(){
+    var el=$('ganhadoresConteudo');
+    var btn=$('btnGanhadores');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Buscando...';}
+    el.innerHTML='<p class="muted">🔍 Buscando ganhadores...</p>';
+
+    call('listarGanhadoresAdmin',[TOKEN]).then(function(r){
+      if(btn){btn.disabled=false;btn.innerHTML='🔄 Atualizar';}
+      if(sessaoExpirou(r))return;
+      if(!r.ok){el.innerHTML='<p class="alert alert-error">'+r.message+'</p>';return;}
+
+      if(!r.data.lancado){
+        el.innerHTML='<p class="alert alert-info">⚠️ '+(r.data.msg||'Resultado ainda não foi lançado.')+'<br>Vá na aba <b>Resultado</b> e lance o placar final primeiro.</p>';
+        return;
+      }
+
+      var html='<div class="alert alert-success" style="display:block">';
+      html+='🏁 Placar final: <b>'+r.data.placarFinal+'</b><br>';
+      html+='🎉 Total de ganhadores: <b>'+r.data.qtdGanhadores+'</b><br>';
+      html+='🏆 Prêmio por ganhador: <b>'+r.data.premioPorGanhadorFmt+'</b>';
+      html+='</div>';
+
+      if(!r.data.ganhadores||!r.data.ganhadores.length){
+        html+='<p class="alert alert-info">Nenhum ganhador encontrado para este placar.<br><small>Lembre-se: só palpites <b>PAGOS</b> com placar exato contam.</small></p>';
+        el.innerHTML=html;return;
+      }
+
+      html+='<div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Código</th><th>Nome</th><th>WhatsApp</th><th>Placar</th></tr></thead><tbody>';
+      html+=r.data.ganhadores.map(function(g){
+        var w=(g.whatsapp||'').replace(/\D/g,'');
+        return '<tr><td><b>'+g.codigo+'</b></td><td>'+g.nome+'</td><td>'+g.whatsapp+' <a class="btn-sm btn-outline" style="text-decoration:none" target="_blank" href="https://wa.me/'+w+'">Abrir</a></td><td>'+g.placar+'</td></tr>';
+      }).join('');
+      html+='</tbody></table></div>';
+      el.innerHTML=html;
+    }).catch(function(){
+      if(btn){btn.disabled=false;btn.innerHTML='🔄 Atualizar';}
+      el.innerHTML='<p class="alert alert-error">Erro de comunicação. Faça login novamente.</p>';
+    });
+  }
+
+  function carregarAuditoria(){
+    call('listarAuditoria',[TOKEN]).then(function(r){
+      if(sessaoExpirou(r))return;
+      if(!r.ok){$('auditBody').innerHTML='<tr><td colspan="5">'+r.message+'</td></tr>';return;}
+      if(!r.data.length){$('auditBody').innerHTML='<tr><td colspan="5" class="center muted">Sem registros.</td></tr>';return;}
+      $('auditBody').innerHTML=r.data.map(function(a){
+        return '<tr><td>'+a.data+'</td><td>'+a.acao+'</td><td>'+a.codigo+'</td><td>'+a.anterior+'→'+a.novo+'</td><td>'+(a.obs||'')+'</td></tr>';
+      }).join('');
+    });
+  }
+
+  function aba(nome,btn){
+    document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(function(t){t.classList.add('hidden');});
+    $('tab-'+nome).classList.remove('hidden');
+    if(nome==='dash')carregarDash();
+    if(nome==='palpites')carregarPalpites();
+    if(nome==='ganhadores')carregarGanhadores();
+    if(nome==='auditoria')carregarAuditoria();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<script>
+  /* ===== Helpers ===== */
+  function $(id){return document.getElementById(id);}
+  function show(el){el.classList.remove('hidden');}
+  function hide(el){el.classList.add('hidden');}
+  function fmtMsg(el,tipo,msg){
+    el.className='alert alert-'+tipo;
+    el.textContent=msg;
+    el.style.display='block';
+  }
+  function copiar(texto,btn){
+    navigator.clipboard.writeText(texto).then(function(){
+      var orig=btn.textContent;
+      btn.textContent='Copiado!';
+      setTimeout(function(){btn.textContent=orig;},1500);
+    });
+  }
+  function call(fn,args){
+    return new Promise(function(resolve,reject){
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        [fn].apply(null,args||[]);
+    });
+  }
+</script>

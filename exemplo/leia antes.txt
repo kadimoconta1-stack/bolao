@@ -1,0 +1,1 @@
+essa versão foi a que criei usando o google apps script, mas o foco é usar vercel + GitHub + supabase

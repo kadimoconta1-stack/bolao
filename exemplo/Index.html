@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <?!= include('Styles'); ?>
+</head>
+<body>
+
+<header class="topo">
+  <h1 id="nomeBolao">Carregando...</h1>
+  <div class="sub" id="subInfo">Bolão de Placar Exato</div>
+  <div class="vs-box">
+    <div class="vs-time">
+      <img id="imgCasa" src="https://via.placeholder.com/56/16a34a/ffffff?text=C" alt="Casa">
+      <span class="nome" id="vsCasa">Casa</span>
+    </div>
+    <span class="vs-x">VS</span>
+    <div class="vs-time">
+      <img id="imgVis" src="https://via.placeholder.com/56/15803d/ffffff?text=V" alt="Visitante">
+      <span class="nome" id="vsVis">Visitante</span>
+    </div>
+  </div>
+  <span id="statusBadge" class="badge badge-aberto">ABERTO</span>
+</header>
+
+<div class="container">
+
+  <div class="grid-cards">
+    <div class="mini-card green"><div class="num" id="cPagos">0</div><div class="lbl">Palpites Pagos</div></div>
+    <div class="mini-card gold"><div class="num" id="cPremio">R$ 0</div><div class="lbl">Prêmio Estimado</div></div>
+    <div class="mini-card"><div class="num" id="cValor">R$ 0</div><div class="lbl">Valor do Palpite</div></div>
+    <div class="mini-card"><div class="num" id="cLimite" style="font-size:.95rem">—</div><div class="lbl">Limite</div></div>
+  </div>
+
+  <div class="card hidden" id="cardMeusPalpites">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0">📋 Meus Palpites</h2>
+      <button class="btn btn-outline btn-sm" onclick="atualizarMeusPalpites()">🔄 Atualizar status</button>
+    </div>
+    <div id="meusPalpitesLista" style="margin-top:12px"></div>
+    <button class="btn-sm btn-outline" style="margin-top:8px" onclick="limparMeusPalpites()">🗑️ Limpar meus palpites deste aparelho</button>
+  </div>
+
+  <div class="card hidden" id="cardResultado">
+    <h2>🏆 Resultado Final</h2>
+    <div id="resultadoConteudo"></div>
+  </div>
+
+  <div class="card" id="cardForm">
+    <h2>⚽ Faça seu palpite</h2>
+    <div id="formAlert" class="alert"></div>
+
+    <div id="pendenteBox" class="hidden" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #f59e0b;border-radius:16px;padding:18px;margin-top:14px;text-align:center">
+      <div style="font-size:2rem">⚠️</div>
+      <p style="font-weight:800;color:#b45309;margin-top:6px">Você já tem um palpite pendente!</p>
+      <p style="margin-top:8px"><b>Código:</b> <span id="pendCodigo"></span></p>
+      <p><b>Placar:</b> <span id="pendPlacar"></span></p>
+      <p class="muted" style="margin-top:10px;font-size:.88rem">Para fazer um novo palpite, você precisa <b>pagar</b> este ou <b>solicitar o cancelamento</b>.</p>
+      <a id="btnCancelar" class="btn btn-red" style="display:block;text-decoration:none;text-align:center" target="_blank">📲 Solicitar cancelamento no WhatsApp</a>
+      <button class="btn btn-outline" onclick="fecharPendente()">Entendi</button>
+    </div>
+
+    <div id="encerradoMsg" class="alert alert-error hidden">
+      🔒 Bolão encerrado. Não é mais possível registrar palpites.
+    </div>
+
+    <div id="formInputs">
+      <label>Seu nome</label>
+      <input type="text" id="nome" maxlength="60" placeholder="Digite seu nome">
+
+      <label>WhatsApp (com DDD)</label>
+      <input type="tel" id="whatsapp" maxlength="20" placeholder="Ex: 11999999999">
+
+      <label>Seu palpite de placar</label>
+      <div class="placar-row">
+        <div class="placar-time">
+          <img id="pImgCasa" src="https://via.placeholder.com/42" alt="">
+          <span class="nm" id="tCasa">Casa</span>
+        </div>
+        <input type="number" id="golsCasa" min="0" max="20" value="0">
+        <span class="x">×</span>
+        <input type="number" id="golsVis" min="0" max="20" value="0">
+        <div class="placar-time">
+          <img id="pImgVis" src="https://via.placeholder.com/42" alt="">
+          <span class="nm" id="tVis">Visitante</span>
+        </div>
+      </div>
+
+      <div id="captchaBox" class="hidden">
+        <label>🔐 Verificação de segurança</label>
+        <p class="muted" id="captchaPergunta" style="margin-bottom:6px"></p>
+        <input type="number" id="captchaResp" placeholder="Sua resposta">
+      </div>
+
+      <button class="btn" id="btnEnviar" onclick="enviarPalpite()">🎯 Enviar palpite</button>
+    </div>
+  </div>
+
+  <div class="resultado-box" id="boxRegistro">
+    <div class="check">✅</div>
+    <h2 style="color:var(--primary-dark);justify-content:center">Palpite registrado!</h2>
+    <p class="muted">Anote seu código (caso queira consultar depois)</p>
+    <div class="codigo" id="regCodigo">—</div>
+    <p style="font-size:1.05rem"><b>Placar:</b> <span id="regPlacar"></span></p>
+    <p><b>Status:</b> <span id="regStatus" class="status-tag st-pendente">Pendente</span></p>
+
+    <div class="pix-box">
+      <p style="font-weight:800;color:#0369a1">💸 Pague via PIX para validar:</p>
+      <div class="pix-chave" id="regPix"></div>
+      <p class="muted"><b>Recebedor:</b> <span id="regRecebedor"></span></p>
+      <p class="muted"><b>Valor:</b> <span id="regValor"></span></p>
+    </div>
+
+    <button class="btn btn-pix" onclick="copiarPix(event)">📋 Copiar chave PIX</button>
+    <a id="regWhats" class="btn btn-whats" style="display:block;text-decoration:none;text-align:center" target="_blank">📲 Enviar comprovante no WhatsApp</a>
+    <button class="btn btn-outline" onclick="novoPalpite()">Fazer outro palpite</button>
+  </div>
+
+  <div class="card">
+    <h2>🔍 Consultar palpite</h2>
+    <label>Código do palpite</label>
+    <input type="text" id="consultaCod" maxlength="6" placeholder="Ex: AB82KQ" style="text-transform:uppercase">
+    <button class="btn btn-outline" onclick="consultar()">Consultar</button>
+    <div id="consultaResult" class="alert"></div>
+  </div>
+
+  <div class="card">
+    <h2>📊 Transparência</h2>
+    <p class="muted">Palpites pagos: <b id="tTotal">0</b> • Prêmio estimado: <b id="tPremio">R$ 0</b></p>
+    <div class="table-wrap" style="margin-top:12px">
+      <table>
+        <thead><tr><th>Código</th><th>Placar</th><th>Status</th></tr></thead>
+        <tbody id="transpBody"><tr><td colspan="3" class="center muted">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📜 Regras do bolão</h2>
+    <ol class="regras">
+      <li>Cada palpite possui o valor definido pelo organizador.</li>
+      <li>O participante deve informar o placar exato da partida.</li>
+      <li>O palpite só será validado após confirmação do pagamento.</li>
+      <li>Enquanto houver palpite pendente, não é possível fazer outro. Pague ou solicite o cancelamento.</li>
+      <li>Após o pagamento confirmado, você pode fazer novos palpites em outros placares.</li>
+      <li>75% do valor arrecadado será destinado à premiação.</li>
+      <li>25% será destinado à taxa administrativa/organização.</li>
+      <li>Havendo mais de um ganhador, o prêmio será dividido igualmente.</li>
+      <li>Após o horário limite, novos palpites não serão aceitos.</li>
+      <li>O resultado será lançado pelo administrador após a partida.</li>
+    </ol>
+  </div>
+
+  <p class="footer-credit">⚽ Bolão Placar Exato V5</p>
+</div>
+
+<?!= include('Scripts'); ?>
+<script>
+  var CFG=null, captchaToken='', tokenEnvio='';
+  var LS_KEY='bpe5_meus_palpites';
+
+  document.addEventListener('DOMContentLoaded', iniciar);
+
+  function gerarTokenEnvio(){return 'env_'+Date.now()+'_'+Math.random().toString(36).substr(2,9);}
+
+  function iniciar(){
+    tokenEnvio=gerarTokenEnvio();
+    carregarConfig();carregarResumo();carregarTransparencia();carregarResultado();novoCaptcha();
+    renderMeusPalpites();atualizarMeusPalpites();
+  }
+
+  function getMeusPalpites(){try{var raw=localStorage.getItem(LS_KEY);return raw?JSON.parse(raw):[];}catch(e){return [];}}
+  function salvarMeuPalpite(p){
+    try{var lista=getMeusPalpites();
+      if(!lista.some(function(x){return x.codigo===p.codigo;})){lista.unshift(p);localStorage.setItem(LS_KEY,JSON.stringify(lista));}
+    }catch(e){}
+  }
+  function atualizarStatusLocal(codigo,novoStatus){
+    try{var lista=getMeusPalpites();lista.forEach(function(x){if(x.codigo===codigo)x.status=novoStatus;});localStorage.setItem(LS_KEY,JSON.stringify(lista));}catch(e){}
+  }
+  function limparMeusPalpites(){
+    if(!confirm('Remover a lista de palpites salva neste aparelho? (Seus palpites continuam no sistema, você pode consultar pelo código.)'))return;
+    try{localStorage.removeItem(LS_KEY);}catch(e){}renderMeusPalpites();
+  }
+
+  function renderMeusPalpites(){
+    var lista=getMeusPalpites();
+    var card=$('cardMeusPalpites'), el=$('meusPalpitesLista');
+    if(!lista.length){card.classList.add('hidden');return;}
+    card.classList.remove('hidden');
+    el.innerHTML=lista.map(function(p){
+      var stClass=p.status==='PAGO'?'st-pago':(p.status==='RECUSADO'?'st-recusado':'st-pendente');
+      var stTxt=p.status==='PAGO'?'Pago':(p.status==='RECUSADO'?'Recusado':'Pendente');
+      var html='<div style="background:#f8fafc;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid var(--border)">';
+      html+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">';
+      html+='<div><b style="font-size:1.1rem;letter-spacing:2px;color:var(--primary-dark)">'+p.codigo+'</b> • <b>'+p.placar+'</b></div>';
+      html+='<span class="status-tag '+stClass+'">'+stTxt+'</span></div>';
+      if(p.status==='PENDENTE'){
+        var whats=CFG?CFG.whatsappOrg:'';
+        var texto='Olá! Fiz um palpite no bolão.%0A'+'Código: '+p.codigo+'%0A'+'Nome: '+encodeURIComponent(p.nome||'')+'%0A'+'Placar: '+encodeURIComponent(p.placar)+'%0A'+'Segue o comprovante do pagamento via PIX.';
+        html+='<a class="btn btn-whats btn-sm" style="display:inline-block;text-decoration:none;margin-top:8px" target="_blank" href="https://wa.me/'+whats+'?text='+texto+'">📲 Enviar comprovante</a> ';
+        html+='<button class="btn-sm btn-pix" onclick="copiarPixGenerico()">📋 Copiar PIX</button>';
+      }
+      html+='</div>';return html;
+    }).join('');
+  }
+
+  function atualizarMeusPalpites(){
+    var lista=getMeusPalpites();if(!lista.length)return;
+    lista.forEach(function(p){
+      call('consultarPalpite',[p.codigo]).then(function(r){
+        if(r.ok){atualizarStatusLocal(p.codigo,r.data.status);renderMeusPalpites();}
+      });
+    });
+  }
+
+  function copiarPixGenerico(){
+    var pix=CFG?CFG.chavePix:'';
+    navigator.clipboard.writeText(pix).then(function(){alert('Chave PIX copiada: '+pix);});
+  }
+
+  function setImg(id,url,fallbackTxt){
+    var el=$(id);if(!el)return;
+    if(url&&url.trim()){el.src=url;}else{el.src='https://via.placeholder.com/56/16a34a/ffffff?text='+encodeURIComponent(fallbackTxt||'?');}
+  }
+
+  function carregarConfig(){
+    call('getConfigPublica').then(function(r){
+      if(!r.ok)return;CFG=r.data;aplicarCores(r.data);
+      $('nomeBolao').textContent=r.data.nomeBolao;
+      $('subInfo').textContent=r.data.timeCasa+' vs '+r.data.timeVisitante;
+      $('vsCasa').textContent=r.data.timeCasa;$('vsVis').textContent=r.data.timeVisitante;
+      $('tCasa').textContent=r.data.timeCasa;$('tVis').textContent=r.data.timeVisitante;
+      setImg('imgCasa',r.data.imgTimeCasa,r.data.timeCasa.charAt(0));
+      setImg('imgVis',r.data.imgTimeVisitante,r.data.timeVisitante.charAt(0));
+      setImg('pImgCasa',r.data.imgTimeCasa,r.data.timeCasa.charAt(0));
+      setImg('pImgVis',r.data.imgTimeVisitante,r.data.timeVisitante.charAt(0));
+      $('cValor').textContent=r.data.valorPalpiteFmt;
+      $('cLimite').textContent=r.data.dataLimite||'—';
+      var badge=$('statusBadge');
+      if(r.data.bolaoEncerrado){badge.textContent='ENCERRADO';badge.className='badge badge-fechado';$('encerradoMsg').classList.remove('hidden');$('formInputs').style.display='none';}
+      else{badge.textContent='ABERTO';badge.className='badge badge-aberto';}
+      renderMeusPalpites();
+    });
+  }
+
+  function carregarResumo(){
+    call('getResumoPublico').then(function(r){
+      if(!r.ok)return;
+      $('cPagos').textContent=r.data.palpitesPagos;$('cPremio').textContent=r.data.premioEstimadoFmt;$('tPremio').textContent=r.data.premioEstimadoFmt;
+    });
+  }
+
+  function carregarTransparencia(){
+    call('listarTransparenciaPublica').then(function(r){
+      var tb=$('transpBody');
+      if(!r.ok){tb.innerHTML='<tr><td colspan="3" class="center muted">Erro ao carregar.</td></tr>';return;}
+      $('tTotal').textContent=r.data.totalPagos;
+      tb.innerHTML='<tr><td colspan="3" class="center" style="padding:24px"><div style="font-size:2rem">🔒</div><p style="font-weight:700;margin-top:8px;color:var(--primary-dark)">Placares em sigilo</p><p class="muted" style="margin-top:4px">'+r.data.totalPagos+' palpite(s) pago(s) confirmado(s)</p><p class="muted">Os placares serão revelados após o resultado, garantindo justiça.</p></td></tr>';
+    });
+  }
+
+  function carregarResultado(){
+    call('getResultadoPublico').then(function(r){
+      if(!r.ok||!r.data.lancado)return;var d=r.data;
+      $('cardResultado').classList.remove('hidden');
+      var html='<div style="text-align:center;padding:10px">';
+      html+='<h2 style="justify-content:center;color:var(--primary-dark);font-size:1.5rem">'+d.timeCasa+' '+d.golsCasa+' × '+d.golsVisitante+' '+d.timeVisitante+'</h2>';
+      if(d.temGanhador){
+        html+='<p style="margin-top:12px;font-size:1.05rem"><b>🎉 Ganhadores:</b> '+d.qtdGanhadores+'</p>';
+        html+='<p><b>💰 Prêmio total:</b> '+d.premioTotalFmt+'</p>';
+        html+='<p><b>🏆 Prêmio por ganhador:</b> '+d.premioPorGanhadorFmt+'</p>';
+        if(d.codigosVencedores&&d.codigosVencedores.length){
+          html+='<div style="margin-top:16px;background:#fff;border-radius:14px;padding:14px;border:2px dashed var(--primary)">';
+          html+='<p style="font-weight:800;color:var(--primary-dark);margin-bottom:8px">🏅 Códigos vencedores</p>';
+          html+='<div class="table-wrap"><table><thead><tr><th>Código</th><th>Placar</th></tr></thead><tbody>';
+          html+=d.codigosVencedores.map(function(g){return '<tr><td><b>'+g.codigo+'</b></td><td><span class="status-tag st-pago">'+g.placar+'</span></td></tr>';}).join('');
+          html+='</tbody></table></div><p class="muted" style="margin-top:8px;font-size:.8rem">Se seu código está na lista, você ganhou! Entre em contato com o organizador.</p></div>';
+        }
+      }else{html+='<p style="margin-top:12px">Não houve acertadores do placar exato. Será aplicada a regra definida pelo organizador.</p>';}
+      html+='</div>';$('resultadoConteudo').innerHTML=html;
+    });
+  }
+
+  function novoCaptcha(){
+    call('gerarCaptchaMatematico').then(function(r){
+      if(!r.ok)return;
+      if(r.data.usarCaptcha){$('captchaBox').classList.remove('hidden');$('captchaPergunta').textContent=r.data.pergunta;captchaToken=r.data.token;$('captchaResp').value='';}
+      else{$('captchaBox').classList.add('hidden');}
+    });
+  }
+
+  function enviarPalpite(){
+    var alert=$('formAlert');alert.style.display='none';$('pendenteBox').classList.add('hidden');
+    var nome=$('nome').value.trim(),whatsapp=$('whatsapp').value.trim();
+    var gc=$('golsCasa').value,gv=$('golsVis').value,cap=$('captchaResp').value;
+    if(nome.length<2){fmtMsg(alert,'error','Informe seu nome.');return;}
+    if(whatsapp.replace(/\D/g,'').length<10){fmtMsg(alert,'error','WhatsApp inválido.');return;}
+    if(gc===''||gv===''){fmtMsg(alert,'error','Informe os gols.');return;}
+    var btn=$('btnEnviar');btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Registrando...';
+    var dados={nome:nome,whatsapp:whatsapp,golsCasa:gc,golsVisitante:gv,captchaToken:captchaToken,captchaResposta:cap,tokenEnvio:tokenEnvio};
+    call('registrarPalpite',[dados]).then(function(r){
+      btn.disabled=false;btn.innerHTML='🎯 Enviar palpite';novoCaptcha();
+      if(r.ok){salvarMeuPalpite({codigo:r.data.codigo,placar:r.data.placar,status:r.data.status,nome:nome});renderMeusPalpites();mostrarRegistro(r.data);tokenEnvio=gerarTokenEnvio();carregarResumo();carregarTransparencia();}
+      else if(r.errorCode==='TEM_PENDENTE'){mostrarPendente(r.data,nome,whatsapp);}
+      else{fmtMsg(alert,'error',r.message);}
+    }).catch(function(){btn.disabled=false;btn.innerHTML='🎯 Enviar palpite';novoCaptcha();fmtMsg(alert,'error','Erro de comunicação. Tente novamente.');});
+  }
+
+  function mostrarPendente(d,nome,whatsapp){
+    var box=$('pendenteBox');$('pendCodigo').textContent=d.codigoPendente;$('pendPlacar').textContent=d.placarPendente;
+    var whatsOrg=CFG.whatsappOrg;
+    var texto='Olá! Gostaria de SOLICITAR O CANCELAMENTO do meu palpite.%0A'+'Código: '+d.codigoPendente+'%0A'+'Placar: '+encodeURIComponent(d.placarPendente)+'%0A'+'Nome: '+encodeURIComponent(nome)+'%0A'+'WhatsApp: '+encodeURIComponent(whatsapp)+'%0A'+'Desejo fazer um novo palpite. Obrigado!';
+    $('btnCancelar').href='https://wa.me/'+whatsOrg+'?text='+texto;
+    box.classList.remove('hidden');box.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  function fecharPendente(){$('pendenteBox').classList.add('hidden');}
+
+  function mostrarRegistro(d){
+    $('cardForm').classList.add('hidden');var box=$('boxRegistro');box.style.display='block';
+    $('regCodigo').textContent=d.codigo;
+    $('regPlacar').textContent=(d.timeCasa||'')+' '+d.placar+' '+(d.timeVisitante||'');
+    $('regStatus').textContent=d.status==='PAGO'?'Pago':'Pendente';
+    $('regStatus').className='status-tag '+(d.status==='PAGO'?'st-pago':'st-pendente');
+    $('regPix').textContent=d.chavePix||CFG.chavePix;
+    $('regRecebedor').textContent=d.nomeRecebedor||CFG.nomeRecebedor;
+    $('regValor').textContent=d.valor||CFG.valorPalpiteFmt;
+    var whats=d.whatsappOrg||CFG.whatsappOrg;
+    var texto='Olá! Fiz um palpite no bolão.%0A'+'Código: '+d.codigo+'%0A'+'Nome: '+encodeURIComponent(d.nome||$('nome').value)+'%0A'+'Placar: '+encodeURIComponent((d.timeCasa||'')+' '+d.placar+' '+(d.timeVisitante||''))+'%0A'+'Valor: '+encodeURIComponent(d.valor||CFG.valorPalpiteFmt)+'%0A'+'Segue o comprovante do pagamento via PIX.';
+    $('regWhats').href='https://wa.me/'+whats+'?text='+texto;
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function copiarPix(e){
+    var pix=$('regPix').textContent;
+    navigator.clipboard.writeText(pix).then(function(){var btn=e.target;var orig=btn.innerHTML;btn.innerHTML='✅ Chave copiada!';setTimeout(function(){btn.innerHTML=orig;},2000);});
+  }
+
+  function novoPalpite(){
+    $('boxRegistro').style.display='none';$('cardForm').classList.remove('hidden');$('pendenteBox').classList.add('hidden');
+    $('nome').value='';$('whatsapp').value='';$('golsCasa').value='0';$('golsVis').value='0';$('captchaResp').value='';
+    novoCaptcha();window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function consultar(){
+    var cod=$('consultaCod').value.trim().toUpperCase();var res=$('consultaResult');res.style.display='none';
+    if(!cod){fmtMsg(res,'error','Digite um código.');return;}
+    call('consultarPalpite',[cod]).then(function(r){
+      if(r.ok){
+        var st=r.data.status==='PAGO'?'Pago':(r.data.status==='RECUSADO'?'Recusado':'Pendente');
+        fmtMsg(res,'info','Código: '+r.data.codigo+' | Placar: '+r.data.placar+' | Status: '+st+' | Cadastro: '+r.data.dataCadastro);
+        salvarMeuPalpite({codigo:r.data.codigo,placar:r.data.placar,status:r.data.status,nome:''});renderMeusPalpites();
+      }else{fmtMsg(res,'error',r.message);}
+    });
+  }
+</script>
+</body>
+</html>
