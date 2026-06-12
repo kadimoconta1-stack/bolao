@@ -42,6 +42,13 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Missing Supabase environment variables");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     let telegramBotToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
     let telegramAdminChatId = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
     let telegramAdminUserId = "";
@@ -60,13 +67,8 @@ serve(async (req) => {
       telegramGroupChatId = tgConfig.group_chat_id || "";
     }
 
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing Supabase environment variables");
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const body = await req.json();
+
 
     const {
       nome,
