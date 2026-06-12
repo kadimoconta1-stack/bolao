@@ -642,7 +642,7 @@ serve(async (req) => {
 
       if (!tgConfig) {
         return new Response(
-          JSON.stringify({ ok: true, data: { configured: false, bot_token_masked: "", admin_chat_id: "", webhook_secret_masked: "" } }),
+          JSON.stringify({ ok: true, data: { configured: false, bot_token_masked: "", admin_chat_id: "", webhook_secret_masked: "", admin_user_id: "", group_chat_id: "", bot_username: "", bot_id: "" } }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -658,6 +658,10 @@ serve(async (req) => {
             bot_token_masked: maskValue(tgConfig.bot_token),
             admin_chat_id: tgConfig.admin_chat_id,
             webhook_secret_masked: maskValue(tgConfig.webhook_secret),
+            admin_user_id: tgConfig.admin_user_id || "",
+            group_chat_id: tgConfig.group_chat_id || "",
+            bot_username: tgConfig.bot_username || "",
+            bot_id: tgConfig.bot_id || "",
             updated_at: tgConfig.updated_at,
           }
         }),
@@ -669,18 +673,28 @@ serve(async (req) => {
     // ACTION: SAVE TELEGRAM CONFIG
     // =========================================================================
     if (action === "save-telegram-config") {
-      const { bot_token, admin_chat_id, webhook_secret } = payload;
+      const { bot_token, admin_chat_id, webhook_secret, admin_user_id, group_chat_id, bot_username, bot_id } = payload;
 
       if (!bot_token || !admin_chat_id || !webhook_secret) {
         return new Response(
-          JSON.stringify({ ok: false, message: "Todos os campos são obrigatórios: Token do Bot, Chat ID e Webhook Secret." }),
+          JSON.stringify({ ok: false, message: "Todos os campos obrigatórios devem ser preenchidos: Token do Bot, Chat ID e Webhook Secret." }),
           { headers: corsHeaders, status: 400 }
         );
       }
 
       const { error: upsertErr } = await supabase
         .from("telegram_config")
-        .upsert({ id: 1, bot_token, admin_chat_id, webhook_secret, updated_at: new Date().toISOString() });
+        .upsert({
+          id: 1,
+          bot_token,
+          admin_chat_id,
+          webhook_secret,
+          admin_user_id: admin_user_id || "",
+          group_chat_id: group_chat_id || "",
+          bot_username: bot_username || "",
+          bot_id: bot_id || "",
+          updated_at: new Date().toISOString()
+        });
 
       if (upsertErr) throw upsertErr;
 
@@ -688,8 +702,9 @@ serve(async (req) => {
         action: "SAVE_TELEGRAM_CONFIG",
         entity_type: "TELEGRAM_CONFIG",
         actor: "ADMIN",
-        details: { admin_chat_id },
+        details: { admin_chat_id, admin_user_id, group_chat_id, bot_username, bot_id },
       });
+
 
       return new Response(
         JSON.stringify({ ok: true, message: "Configurações do Telegram salvas com sucesso!" }),

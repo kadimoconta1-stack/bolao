@@ -38,18 +38,20 @@ serve(async (req) => {
     // Load telegram credentials: prefer env vars, fall back to DB config
     let telegramBotToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
     let telegramAdminChatId = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
+    let telegramAdminUserId = "";
+    let telegramGroupChatId = "";
 
-    if (!telegramBotToken || !telegramAdminChatId) {
-      const { data: tgConfig } = await supabase
-        .from("telegram_config")
-        .select("bot_token, admin_chat_id")
-        .eq("id", 1)
-        .maybeSingle();
+    const { data: tgConfig } = await supabase
+      .from("telegram_config")
+      .select("bot_token, admin_chat_id, admin_user_id, group_chat_id")
+      .eq("id", 1)
+      .maybeSingle();
 
-      if (tgConfig) {
-        telegramBotToken = tgConfig.bot_token || telegramBotToken;
-        telegramAdminChatId = tgConfig.admin_chat_id || telegramAdminChatId;
-      }
+    if (tgConfig) {
+      telegramBotToken = tgConfig.bot_token || telegramBotToken;
+      telegramAdminChatId = tgConfig.admin_chat_id || telegramAdminChatId;
+      telegramAdminUserId = tgConfig.admin_user_id || "";
+      telegramGroupChatId = tgConfig.group_chat_id || "";
     }
 
     const update = await req.json();
@@ -65,9 +67,14 @@ serve(async (req) => {
     const fromId = String(cbQuery.from.id);
     const chatId = String(cbQuery.message.chat.id);
 
-    // 2. Validate Telegram admin identity (check both sender and chat ID)
-    if (fromId !== telegramAdminChatId && chatId !== telegramAdminChatId) {
-      console.warn(`Unauthorized chat access from ID: ${fromId} (expected: ${telegramAdminChatId})`);
+    // 2. Validate Telegram admin identity (check both sender, private chat, group chat and admin ID)
+    const isAllowed = 
+      (telegramGroupChatId && chatId === telegramGroupChatId) ||
+      (telegramAdminChatId && (chatId === telegramAdminChatId || fromId === telegramAdminChatId)) ||
+      (telegramAdminUserId && (chatId === telegramAdminUserId || fromId === telegramAdminUserId));
+
+    if (!isAllowed) {
+      console.warn(`Unauthorized chat access from user: ${fromId}, chat: ${chatId}. Expected admin: ${telegramAdminUserId}/${telegramAdminChatId}, group: ${telegramGroupChatId}`);
       
       // Answer callback anyway so the UI doesn't hang, but tell them they can't do this
       await fetch(`https://api.telegram.org/bot${telegramBotToken}/answerCallbackQuery`, {
@@ -75,7 +82,7 @@ serve(async (req) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           callback_query_id: cbQuery.id,
-          text: "Acesso negado. Você não é o administrador deste bolão.",
+          text: "Acesso negado. Você não tem permissão para aprovar/reprovar neste bolão.",
           show_alert: true,
         }),
       });

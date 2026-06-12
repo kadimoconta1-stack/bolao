@@ -44,17 +44,20 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     let telegramBotToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
     let telegramAdminChatId = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
+    let telegramAdminUserId = "";
+    let telegramGroupChatId = "";
 
-    if (!telegramBotToken || !telegramAdminChatId) {
-      const { data: tgConfig } = await supabase
-        .from("telegram_config")
-        .select("bot_token, admin_chat_id")
-        .eq("id", 1)
-        .maybeSingle();
-      if (tgConfig) {
-        telegramBotToken = tgConfig.bot_token || telegramBotToken;
-        telegramAdminChatId = tgConfig.admin_chat_id || telegramAdminChatId;
-      }
+    const { data: tgConfig } = await supabase
+      .from("telegram_config")
+      .select("bot_token, admin_chat_id, admin_user_id, group_chat_id")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (tgConfig) {
+      telegramBotToken = tgConfig.bot_token || telegramBotToken;
+      telegramAdminChatId = tgConfig.admin_chat_id || telegramAdminChatId;
+      telegramAdminUserId = tgConfig.admin_user_id || "";
+      telegramGroupChatId = tgConfig.group_chat_id || "";
     }
 
 
@@ -310,7 +313,8 @@ serve(async (req) => {
     });
 
     // 11. Dispatch Telegram Notification
-    if (telegramBotToken && telegramAdminChatId) {
+    const targetChatId = telegramGroupChatId || telegramAdminChatId || telegramAdminUserId;
+    if (telegramBotToken && targetChatId) {
       try {
         const textMessage = `🆕 *Novo palpite recebido*\n\n` +
           `*Código:* \`${uniqueCode}\`\n` +
@@ -324,7 +328,7 @@ serve(async (req) => {
         const whatsappUrl = `https://wa.me/${pool.organizer_whatsapp}?text=${encodeURIComponent(waText)}`;
 
         const payload = {
-          chat_id: telegramAdminChatId,
+          chat_id: targetChatId,
           text: textMessage,
           parse_mode: "Markdown",
           reply_markup: {

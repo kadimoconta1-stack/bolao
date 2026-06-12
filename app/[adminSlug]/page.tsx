@@ -78,6 +78,10 @@ export default function AdminDashboard() {
     bot_token: "",
     admin_chat_id: "",
     webhook_secret: "",
+    admin_user_id: "",
+    group_chat_id: "",
+    bot_username: "",
+    bot_id: "",
   });
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [telegramMsg, setTelegramMsg] = useState<{type: "success" | "error", text: string} | null>(null);
@@ -473,10 +477,14 @@ export default function AdminDashboard() {
       const res = await callAdminApi("get-telegram-config");
       if (res.ok) {
         setTelegramConfigDisplay(res.data);
-        // Pre-fill the admin_chat_id in form (token/secret not sent back for security)
+        // Pre-fill the form fields (token/secret not sent back for security)
         setTelegramForm(prev => ({
           ...prev,
           admin_chat_id: res.data.admin_chat_id || "",
+          admin_user_id: res.data.admin_user_id || "",
+          group_chat_id: res.data.group_chat_id || "",
+          bot_username: res.data.bot_username || "",
+          bot_id: res.data.bot_id || "",
         }));
       }
     } catch (err: any) {
@@ -494,7 +502,11 @@ export default function AdminDashboard() {
       const res = await callAdminApi("save-telegram-config", telegramForm);
       if (res.ok) {
         setTelegramMsg({ type: "success", text: res.message });
-        setTelegramForm({ bot_token: "", admin_chat_id: telegramForm.admin_chat_id, webhook_secret: "" });
+        setTelegramForm(prev => ({
+          ...prev,
+          bot_token: "",
+          webhook_secret: "",
+        }));
         setShowTokenInput(false);
         loadTelegramConfig();
       }
@@ -1347,7 +1359,7 @@ export default function AdminDashboard() {
 
                 {/* Chat ID Field */}
                 <div className="flex flex-col space-y-1">
-                  <label className="font-bold text-slate-400">Chat ID do Administrador (TELEGRAM_ADMIN_CHAT_ID)</label>
+                  <label className="font-bold text-slate-400">Chat ID Privado (TELEGRAM_ADMIN_CHAT_ID)</label>
                   <div className="space-y-1.5">
                     <input
                       type="text"
@@ -1358,11 +1370,61 @@ export default function AdminDashboard() {
                       className="custom-input bg-slate-950 border-slate-800 font-mono text-xs"
                     />
                     <p className="text-slate-500 leading-relaxed">
-                      Para obter o Chat ID: abra o Telegram, envie uma mensagem para o seu bot criado e então acesse:
-                      <code className="block bg-slate-800 px-2 py-1 rounded mt-1 break-all select-all">https://api.telegram.org/bot{"<SEU_TOKEN>"}/getUpdates</code>
-                      Procure pelo campo <code className="bg-slate-800 px-1 rounded">"id"</code> dentro de <code className="bg-slate-800 px-1 rounded">"from"</code>.
+                      ID do chat privado com o administrador. Para obter: envie uma mensagem para o seu bot e acesse a URL de atualizações do Telegram.
                     </p>
                   </div>
+                </div>
+
+                {/* ID de Administrador Field */}
+                <div className="flex flex-col space-y-1">
+                  <label className="font-bold text-slate-400">ID de Administrador (admin_user_id)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 7831117140"
+                    value={telegramForm.admin_user_id}
+                    onChange={(e) => setTelegramForm({ ...telegramForm, admin_user_id: e.target.value })}
+                    className="custom-input bg-slate-950 border-slate-800 font-mono text-xs"
+                  />
+                  <p className="text-slate-500">Seu ID numérico de usuário do Telegram.</p>
+                </div>
+
+                {/* ID do Grupo Field */}
+                <div className="flex flex-col space-y-1">
+                  <label className="font-bold text-slate-400">Grupo do Telegram (group_chat_id)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: -1004241860963"
+                    value={telegramForm.group_chat_id}
+                    onChange={(e) => setTelegramForm({ ...telegramForm, group_chat_id: e.target.value })}
+                    className="custom-input bg-slate-950 border-slate-800 font-mono text-xs"
+                  />
+                  <p className="text-slate-500">ID do grupo do Telegram onde as notificações de palpites serão enviadas.</p>
+                </div>
+
+                {/* Bot ID Field */}
+                <div className="flex flex-col space-y-1">
+                  <label className="font-bold text-slate-400">Bot ID (bot_id)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 8953614947"
+                    value={telegramForm.bot_id}
+                    onChange={(e) => setTelegramForm({ ...telegramForm, bot_id: e.target.value })}
+                    className="custom-input bg-slate-950 border-slate-800 font-mono text-xs"
+                  />
+                  <p className="text-slate-500">O ID numérico do seu Bot.</p>
+                </div>
+
+                {/* Bot Username Field */}
+                <div className="flex flex-col space-y-1">
+                  <label className="font-bold text-slate-400">Username do Bot (bot_username)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: @Bolaofaquim_bot"
+                    value={telegramForm.bot_username}
+                    onChange={(e) => setTelegramForm({ ...telegramForm, bot_username: e.target.value })}
+                    className="custom-input bg-slate-950 border-slate-800 font-mono text-xs"
+                  />
+                  <p className="text-slate-500">O username do seu bot Telegram (com @).</p>
                 </div>
 
                 {/* Webhook Secret Field */}
