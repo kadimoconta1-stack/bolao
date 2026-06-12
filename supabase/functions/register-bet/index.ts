@@ -338,9 +338,6 @@ serve(async (req) => {
               [
                 { text: "✅ Aprovar pagamento", callback_data: `approve:${newBet.id}` },
                 { text: "❌ Reprovar", callback_data: `reject:${newBet.id}` }
-              ],
-              [
-                { text: "📲 Abrir WhatsApp", url: whatsappUrl }
               ]
             ]
           }
