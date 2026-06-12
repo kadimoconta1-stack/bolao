@@ -41,9 +41,47 @@ serve(async (req) => {
     // ACTION: LOGIN
     // =========================================================================
     if (action === "login") {
-      const { password } = payload;
+      const { password, captchaToken, captchaAnswer } = payload;
       if (!password) {
         return new Response(JSON.stringify({ ok: false, message: "Senha não fornecida", errorCode: "MISSING_PASSWORD" }), { headers: corsHeaders, status: 400 });
+      }
+
+      // 0. Verify Captcha
+      if (!captchaToken || !captchaAnswer) {
+        return new Response(
+          JSON.stringify({ ok: false, message: "Verificação de segurança (Captcha) ausente.", errorCode: "CAPTCHA_MISSING" }),
+          { headers: corsHeaders, status: 400 }
+        );
+      }
+
+      const captchaTokenHash = await hashString(captchaToken);
+      const { data: captchaData, error: captchaFetchError } = await supabase
+        .from("math_captchas")
+        .select("*")
+        .eq("token_hash", captchaTokenHash)
+        .is("used_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .single();
+
+      if (captchaFetchError || !captchaData) {
+        return new Response(
+          JSON.stringify({ ok: false, message: "Verificação de segurança expirou. Recarregue a página.", errorCode: "CAPTCHA_EXPIRED" }),
+          { headers: corsHeaders, status: 400 }
+        );
+      }
+
+      // Update captcha as used immediately (single-use constraint)
+      await supabase
+        .from("math_captchas")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", captchaData.id);
+
+      const answerHash = await hashString(String(captchaAnswer).trim());
+      if (answerHash !== captchaData.answer_hash) {
+        return new Response(
+          JSON.stringify({ ok: false, message: "Resposta de verificação incorreta. Tente novamente.", errorCode: "CAPTCHA_WRONG" }),
+          { headers: corsHeaders, status: 400 }
+        );
       }
 
       // 1. Rate limiting check (max 5 failed attempts in the last 15 minutes)
@@ -63,11 +101,31 @@ serve(async (req) => {
         );
       }
 
-      // 2. Validate password
+      // 2. Validate password against DB (fallback to Env Var and initialize)
       const passwordHash = await hashString(password);
-      const expectedHash = Deno.env.get("ADMIN_PASSWORD_HASH") ?? "";
+      
+      let expectedHash = "";
+      const { data: dbCredential } = await supabase
+        .from("admin_credentials")
+        .select("password_hash")
+        .eq("id", 1)
+        .maybeSingle();
 
-      if (passwordHash !== expectedHash) {
+      if (dbCredential) {
+        expectedHash = dbCredential.password_hash;
+      } else {
+        // Fall back to environment variable
+        expectedHash = Deno.env.get("ADMIN_PASSWORD_HASH") ?? "";
+        
+        // Initialize database row so it's ready for future changes
+        if (expectedHash) {
+          await supabase
+            .from("admin_credentials")
+            .insert({ id: 1, password_hash: expectedHash });
+        }
+      }
+
+      if (!expectedHash || passwordHash !== expectedHash) {
         // Log failed attempt
         await supabase.from("admin_login_attempts").insert({ identifier: "admin", ip_hash: ipHash, success: false });
         return new Response(JSON.stringify({ ok: false, message: "Senha incorreta.", errorCode: "INVALID_CREDENTIALS" }), { headers: corsHeaders, status: 401 });
@@ -136,6 +194,71 @@ serve(async (req) => {
       .from("admin_sessions")
       .update({ expires_at: newExpiresAt, last_used_at: new Date().toISOString() })
       .eq("id", session.id);
+
+    // =========================================================================
+    // ACTION: CHANGE PASSWORD
+    // =========================================================================
+    if (action === "change-password") {
+      const { oldPassword, newPassword } = payload;
+      if (!oldPassword || !newPassword) {
+        return new Response(JSON.stringify({ ok: false, message: "Campos obrigatórios ausentes." }), { headers: corsHeaders, status: 400 });
+      }
+
+      if (newPassword.length < 6) {
+        return new Response(JSON.stringify({ ok: false, message: "A nova senha deve ter no mínimo 6 caracteres." }), { headers: corsHeaders, status: 400 });
+      }
+
+      // 1. Fetch current password hash
+      let expectedHash = "";
+      const { data: dbCredential } = await supabase
+        .from("admin_credentials")
+        .select("password_hash")
+        .eq("id", 1)
+        .maybeSingle();
+
+      if (dbCredential) {
+        expectedHash = dbCredential.password_hash;
+      } else {
+        expectedHash = Deno.env.get("ADMIN_PASSWORD_HASH") ?? "";
+      }
+
+      // 2. Validate current password
+      const oldPasswordHash = await hashString(oldPassword);
+      if (!expectedHash || oldPasswordHash !== expectedHash) {
+        return new Response(JSON.stringify({ ok: false, message: "Senha atual incorreta." }), { headers: corsHeaders, status: 400 });
+      }
+
+      // 3. Update to new password hash
+      const newPasswordHash = await hashString(newPassword);
+      
+      const { error: dbUpdateError } = await supabase
+        .from("admin_credentials")
+        .upsert({ id: 1, password_hash: newPasswordHash });
+
+      if (dbUpdateError) throw dbUpdateError;
+
+      // 4. Terminate other admin sessions
+      await supabase
+        .from("admin_sessions")
+        .delete()
+        .neq("token_hash", tokenHash);
+
+      // 5. Log audit
+      await supabase.from("audit_logs").insert({
+        action: "ADMIN_CHANGE_PASSWORD",
+        entity_type: "ADMIN_CREDENTIALS",
+        actor: "ADMIN",
+        details: { ip_hash: ipHash }
+      });
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          message: "Senha alterada com sucesso! Outras sessões ativas foram desconectadas."
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // =========================================================================
     // ACTION: DASHBOARD STATS

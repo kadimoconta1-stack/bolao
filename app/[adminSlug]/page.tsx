@@ -17,8 +17,18 @@ export default function AdminDashboard() {
   const [password, setPassword] = useState("");
   const [token, setToken] = useState("");
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "bets" | "config" | "result" | "audit" | "telegram"
+    "dashboard" | "bets" | "config" | "result" | "audit" | "telegram" | "security"
   >("dashboard");
+
+  // Captcha states for login
+  const [captchaQuestion, setCaptchaQuestion] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+
+  // Change password states
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   // Dashboard state
   const [pool, setPool] = useState<any>(null);
@@ -74,6 +84,25 @@ export default function AdminDashboard() {
 
   const LS_TOKEN_KEY = "bpe5_admin_token";
 
+  const loadCaptcha = async () => {
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+      const res = await fetch(`${supabaseUrl}/functions/v1/get-captcha`, {
+        method: "GET",
+        headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}` },
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setCaptchaQuestion(json.data.question);
+        setCaptchaToken(json.data.token);
+        setCaptchaAnswer("");
+      }
+    } catch (err) {
+      console.error("Failed to load captcha:", err);
+    }
+  };
+
   useEffect(() => {
     if (!isSlugValid) {
       notFound();
@@ -82,6 +111,8 @@ export default function AdminDashboard() {
     if (savedToken) {
       setToken(savedToken);
       setAuthenticated(true);
+    } else {
+      loadCaptcha();
     }
   }, [isSlugValid]);
 
@@ -141,16 +172,22 @@ export default function AdminDashboard() {
     setLoading(true);
 
     try {
-      const res = await callAdminApi("login", { password });
+      const res = await callAdminApi("login", {
+        password,
+        captchaToken,
+        captchaAnswer: captchaAnswer.trim(),
+      });
       if (res.ok) {
         localStorage.setItem(LS_TOKEN_KEY, res.data.token);
         setToken(res.data.token);
         setAuthenticated(true);
         setPassword("");
+        setCaptchaAnswer("");
       }
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || "Senha incorreta ou erro de servidor.");
+      loadCaptcha();
     } finally {
       setLoading(false);
     }
@@ -160,6 +197,7 @@ export default function AdminDashboard() {
     localStorage.removeItem(LS_TOKEN_KEY);
     setAuthenticated(false);
     setToken("");
+    loadCaptcha();
   };
 
   const loadDashboard = async () => {
@@ -371,6 +409,39 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    if (newPassword.length < 6) {
+      setErrorMsg("A nova senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setErrorMsg("As senhas não coincidem.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await callAdminApi("change-password", {
+        oldPassword,
+        newPassword,
+      });
+      if (res.ok) {
+        setSuccessMsg(res.message);
+        setOldPassword("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val);
   };
@@ -407,6 +478,21 @@ export default function AdminDashboard() {
                 className="custom-input bg-slate-950 border-slate-800 text-sm"
               />
             </div>
+
+            {captchaQuestion && (
+              <div className="p-4 bg-slate-950/50 rounded-xl border border-slate-800 space-y-2 text-xs">
+                <label className="font-bold flex items-center gap-1 text-slate-300">🔐 Verificação de Segurança</label>
+                <p className="font-medium text-slate-400">{captchaQuestion}</p>
+                <input
+                  type="number"
+                  required
+                  placeholder="Sua resposta"
+                  value={captchaAnswer}
+                  onChange={(e) => setCaptchaAnswer(e.target.value)}
+                  className="custom-input bg-slate-950 border-slate-800 text-xs w-full text-slate-200"
+                />
+              </div>
+            )}
 
             <button
               type="submit"
@@ -471,6 +557,7 @@ export default function AdminDashboard() {
             { id: "result", label: "🏆 Lançar Resultado" },
             { id: "audit", label: "🕵️ Auditoria" },
             { id: "telegram", label: "🤖 Bot Telegram" },
+            { id: "security", label: "🔒 Segurança" },
           ].map((t) => (
             <button
               key={t.id}
@@ -1104,6 +1191,61 @@ export default function AdminDashboard() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* 7. SEGURANÇA TAB */}
+        {activeTab === "security" && (
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md">
+            <h2 className="text-base font-bold text-white mb-4 border-b border-slate-800 pb-2">
+              🔒 Alterar Senha de Administrador
+            </h2>
+
+            <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
+              <div className="flex flex-col space-y-1">
+                <label className="font-bold text-slate-400">Senha Atual</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Digite a senha atual"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  className="custom-input bg-slate-950 border-slate-800 text-slate-300 text-sm"
+                />
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="font-bold text-slate-400">Nova Senha</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Mínimo 6 caracteres"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="custom-input bg-slate-950 border-slate-800 text-slate-300 text-sm"
+                />
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="font-bold text-slate-400">Confirmar Nova Senha</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Confirme a nova senha"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  className="custom-input bg-slate-950 border-slate-800 text-slate-300 text-sm"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary py-2.5 w-full flex items-center justify-center gap-2 text-sm font-bold mt-2"
+              >
+                {loading ? <span className="spinner"></span> : "Alterar Senha"}
+              </button>
+            </form>
           </div>
         )}
 
