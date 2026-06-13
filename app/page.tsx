@@ -308,6 +308,20 @@ export default function Home() {
           });
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "bets", filter: `pool_id=eq.${pool.id}` },
+        (payload) => {
+          const deletedBet = payload.old as any;
+          fetchStats(pool.id);
+          // Remove the deleted bet from the local device list immediately
+          setLocalBets((prev) => {
+            const updated = prev.filter((b) => b.codigo !== deletedBet.public_code);
+            try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch {}
+            return updated;
+          });
+        }
+      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -367,25 +381,30 @@ export default function Home() {
     } catch {}
   };
 
-  // Sync all stored bets' statuses from DB in a single batch query
+  // Sync all stored bets' statuses from DB in a single batch query.
+  // Bets not found in the DB (e.g. deleted via audit) are removed from local storage.
   const syncLocalBetsStatus = async (stored: LocalBet[]) => {
     if (!stored.length) return;
     try {
       const codes = stored.map((b) => b.codigo);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("public_bets_consultation")
         .select("public_code, status")
         .in("public_code", codes);
-      if (!data || data.length === 0) return;
 
-      // Build a lookup map
+      // Only bail out on actual network/query errors, not on empty results
+      if (error) return;
+
+      // Build a lookup map — codes absent from the DB simply won't appear here
       const statusMap: Record<string, string> = {};
-      data.forEach((row: any) => { statusMap[row.public_code] = row.status; });
+      (data ?? []).forEach((row: any) => { statusMap[row.public_code] = row.status; });
 
       setLocalBets((prev) => {
-        const updated = prev.map((b) =>
-          statusMap[b.codigo] !== undefined ? { ...b, status: statusMap[b.codigo] } : b
-        );
+        // Keep only bets that still exist in the DB, updating their status.
+        // Bets missing from statusMap were deleted server-side and should be removed.
+        const updated = prev
+          .filter((b) => statusMap[b.codigo] !== undefined)
+          .map((b) => ({ ...b, status: statusMap[b.codigo] }));
         try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch {}
         return updated;
       });
